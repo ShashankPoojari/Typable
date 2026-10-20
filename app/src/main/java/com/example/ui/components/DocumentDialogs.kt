@@ -607,3 +607,68 @@ private fun ExportOptionCard(icon: ImageVector, title: String, badge: String, on
         }
     }
 }
+
+@Composable
+fun CustomTableDialog(
+    onInsertTable: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var rows by remember { mutableIntStateOf(3) }
+    var cols by remember { mutableIntStateOf(3) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Insert Table", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Number of Rows: $rows", fontWeight = FontWeight.Medium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilledTonalIconButton(onClick = { if (rows > 1) rows-- }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease Rows")
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        FilledTonalIconButton(onClick = { if (rows < 20) rows++ }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase Rows")
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Number of Columns: $cols", fontWeight = FontWeight.Medium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilledTonalIconButton(onClick = { if (cols > 1) cols-- }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease Columns")
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        FilledTonalIconButton(onClick = { if (cols < 8) cols++ }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase Columns")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onInsertTable(rows, cols)
+                onDismiss()
+            }) {
+                Text("Insert Table")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}

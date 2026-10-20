@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -22,10 +24,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.DocumentStats
+import com.example.model.PageMargins
+import com.example.model.PageOrientation
+import com.example.model.PageSize
 import com.example.ui.components.*
 import com.example.viewmodel.EditorUiState
 import com.example.viewmodel.EditorViewModel
 import com.example.viewmodel.SaveState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,17 +44,22 @@ fun EditorScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    // Ribbon & View state (Microsoft Word & Google Docs layout)
+    var activeRibbonTab by remember { mutableStateOf(RibbonTab.HOME) }
+    var isRibbonExpanded by remember { mutableStateOf(true) }
+    var showRuler by remember { mutableStateOf(true) }
+    var zoomScale by remember { mutableFloatStateOf(1.0f) }
+
     // Dialog & Panel states
     var showPageSetup by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
     var showOutline by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
     var showInsertMenu by remember { mutableStateOf(false) }
+    var showCustomTableDialog by remember { mutableStateOf(false) }
     var showSymbolPicker by remember { mutableStateOf(false) }
     var showShortcuts by remember { mutableStateOf(false) }
     var showExpandedFormat by remember { mutableStateOf(false) }
-    var showColorPicker by remember { mutableStateOf(false) }
-    var showHighlightPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf(uiState.document.title) }
     var overflowMenuExpanded by remember { mutableStateOf(false) }
@@ -62,125 +75,356 @@ fun EditorScreen(
     Scaffold(
         topBar = {
             if (!uiState.isFocusMode) {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            viewModel.explicitSave()
-                            onNavigateBack()
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Library")
-                        }
-                    },
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                renameText = uiState.document.title
-                                showRenameDialog = true
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // --- Signature Word Processor Top Bar (MS Word / Docs Header) ---
+                    TopAppBar(
+                        navigationIcon = {
+                            IconButton(
+                                onClick = {
+                                    viewModel.explicitSave()
+                                    onNavigateBack()
+                                },
+                                modifier = Modifier.testTag("editor_back_button")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Library")
                             }
-                        ) {
-                            Column {
-                                Text(
-                                    text = uiState.document.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                        },
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable {
+                                        renameText = uiState.document.title
+                                        showRenameDialog = true
+                                    }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                SaveStatusIndicator(saveState = uiState.saveState)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = uiState.document.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Rename",
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                    SaveStatusIndicator(saveState = uiState.saveState)
+                                }
                             }
-                        }
-                    },
-                    actions = {
-                        // Search Button
-                        IconButton(onClick = { viewModel.openSearch() }) {
-                            Icon(Icons.Default.Search, contentDescription = "Find & Replace")
-                        }
+                        },
+                        actions = {
+                            // Quick Undo
+                            IconButton(
+                                onClick = { viewModel.undo() },
+                                enabled = uiState.canUndo,
+                                modifier = Modifier.testTag("topbar_undo_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Undo,
+                                    contentDescription = "Undo",
+                                    tint = if (uiState.canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                )
+                            }
 
-                        // Outline (Table of contents)
-                        IconButton(onClick = { showOutline = true }) {
-                            Icon(Icons.Default.MenuBook, contentDescription = "Document Outline")
-                        }
+                            // Quick Redo
+                            IconButton(
+                                onClick = { viewModel.redo() },
+                                enabled = uiState.canRedo,
+                                modifier = Modifier.testTag("topbar_redo_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Redo,
+                                    contentDescription = "Redo",
+                                    tint = if (uiState.canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                )
+                            }
 
-                        // Export & Share
-                        IconButton(onClick = { showExportSheet = true }) {
-                            Icon(Icons.Default.Share, contentDescription = "Export & Share")
-                        }
+                            // Search / Find & Replace
+                            IconButton(onClick = { viewModel.openSearch() }) {
+                                Icon(Icons.Default.Search, contentDescription = "Find & Replace")
+                            }
 
-                        // Focus Mode toggle
-                        IconButton(onClick = { viewModel.toggleFocusMode() }) {
-                            Icon(Icons.Default.Fullscreen, contentDescription = "Focus Mode")
-                        }
+                            // Share / Export
+                            IconButton(onClick = { showExportSheet = true }) {
+                                Icon(Icons.Default.Share, contentDescription = "Export & Share")
+                            }
 
-                        // More Actions
-                        IconButton(onClick = { overflowMenuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More Options")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                            // Fullscreen Focus Mode
+                            IconButton(onClick = { viewModel.toggleFocusMode() }) {
+                                Icon(Icons.Default.Fullscreen, contentDescription = "Focus Mode")
+                            }
+
+                            // Overflow Menu
+                            IconButton(onClick = { overflowMenuExpanded = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
                     )
-                )
-            }
-        },
-        bottomBar = {
-            if (!uiState.isFocusMode) {
-                Column(modifier = Modifier.navigationBarsPadding()) {
-                    // Formatting Toolbar
-                    FormattingToolbar(
+
+                    // --- Famous Word Processor Command Ribbon (Home, Insert, Layout, Review, View, File) ---
+                    WordProcessorRibbon(
                         activeBlock = viewModel.activeBlock,
                         canUndo = uiState.canUndo,
                         canRedo = uiState.canRedo,
+                        document = uiState.document,
+                        isPrintLayout = uiState.isPrintLayoutMode,
+                        showRuler = showRuler,
+                        zoomScale = zoomScale,
+                        isRibbonExpanded = isRibbonExpanded,
+                        activeTab = activeRibbonTab,
+                        onTabSelected = {
+                            if (activeRibbonTab == it && isRibbonExpanded) {
+                                isRibbonExpanded = false
+                            } else {
+                                activeRibbonTab = it
+                                isRibbonExpanded = true
+                            }
+                        },
+                        onToggleRibbonExpanded = { isRibbonExpanded = !isRibbonExpanded },
+                        // Home Tab Actions
                         onUndo = { viewModel.undo() },
                         onRedo = { viewModel.redo() },
                         onToggleBold = { viewModel.toggleBold() },
                         onToggleItalic = { viewModel.toggleItalic() },
                         onToggleUnderline = { viewModel.toggleUnderline() },
                         onToggleStrikethrough = { viewModel.toggleStrikethrough() },
+                        onToggleSuperscript = { viewModel.toggleSuperscript() },
+                        onToggleSubscript = { viewModel.toggleSubscript() },
                         onApplyStyle = { viewModel.applyStyle(it) },
                         onApplyAlignment = { viewModel.applyAlignment(it) },
                         onToggleBulletList = { viewModel.toggleBulletList() },
                         onToggleNumberedList = { viewModel.toggleNumberedList() },
                         onIndent = { viewModel.indent() },
                         onOutdent = { viewModel.outdent() },
-                        onOpenColorPicker = { showExpandedFormat = true },
-                        onOpenHighlightPicker = { showExpandedFormat = true },
-                        onOpenInsertMenu = { showInsertMenu = true },
-                        onOpenExpandedPanel = { showExpandedFormat = true }
+                        onApplyFontFamily = { viewModel.applyFontFamily(it) },
+                        onApplyFontSizeDelta = { viewModel.applyFontSizeDelta(it) },
+                        onApplyColor = { viewModel.applyColor(it) },
+                        onApplyHighlight = { viewModel.applyHighlight(it) },
+                        onClearFormatting = { viewModel.clearFormatting() },
+                        onOpenExpandedPanel = { showExpandedFormat = true },
+                        // Insert Tab Actions
+                        onInsertTable = { r, c -> viewModel.insertTable(r, c) },
+                        onInsertDivider = { viewModel.insertDivider() },
+                        onInsertPageBreak = { viewModel.insertPageBreak() },
+                        onInsertSymbol = { viewModel.insertSymbol(it) },
+                        onInsertDateTime = {
+                            val dateStr = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date())
+                            viewModel.insertSymbol(dateStr)
+                        },
+                        onOpenCustomTableDialog = { showCustomTableDialog = true },
+                        onOpenSymbolPickerDialog = { showSymbolPicker = true },
+                        // Layout Tab Actions
+                        onUpdateMargins = {
+                            viewModel.updatePageSettings(uiState.document.pageSettings.copy(margins = it))
+                        },
+                        onUpdateOrientation = {
+                            viewModel.updatePageSettings(uiState.document.pageSettings.copy(orientation = it))
+                        },
+                        onUpdatePageSize = {
+                            viewModel.updatePageSettings(uiState.document.pageSettings.copy(pageSize = it))
+                        },
+                        onUpdatePaperColor = {
+                            viewModel.updatePageSettings(uiState.document.pageSettings.copy(backgroundColorHex = it))
+                        },
+                        onOpenPageSetupDialog = { showPageSetup = true },
+                        // Review Tab Actions
+                        onOpenStatsDialog = { showStats = true },
+                        onOpenOutlineDialog = { showOutline = true },
+                        onOpenSearch = { viewModel.openSearch() },
+                        // View Tab Actions
+                        onTogglePrintLayout = { viewModel.togglePrintLayoutMode() },
+                        onToggleRuler = { showRuler = !showRuler },
+                        onSetZoom = { zoomScale = it },
+                        onToggleFocusMode = { viewModel.toggleFocusMode() },
+                        // File Tab Actions
+                        onExplicitSave = { viewModel.explicitSave() },
+                        onExportDocx = {
+                            val uri = viewModel.exportToDocx(context)
+                            uri?.let { viewModel.shareExportedFile(context, it, "application/vnd.openxmlformats-officedocument.wordprocessingml.document") }
+                        },
+                        onExportPdf = {
+                            val uri = viewModel.exportToPdf(context)
+                            uri?.let { viewModel.shareExportedFile(context, it, "application/pdf") }
+                        },
+                        onExportMarkdown = {
+                            val uri = viewModel.exportToMarkdown(context)
+                            uri?.let { viewModel.shareExportedFile(context, it, "text/markdown") }
+                        },
+                        onExportHtml = {
+                            val uri = viewModel.exportToHtml(context)
+                            uri?.let { viewModel.shareExportedFile(context, it, "text/html") }
+                        },
+                        onExportTxt = {
+                            val uri = viewModel.exportToTxt(context)
+                            uri?.let { viewModel.shareExportedFile(context, it, "text/plain") }
+                        },
+                        onPrint = { viewModel.print(context) },
+                        onShare = { showExportSheet = true }
                     )
-
-                    // Minimalist Word Count Status Strip
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        tonalElevation = 1.dp
+                }
+            }
+        },
+        bottomBar = {
+            if (!uiState.isFocusMode) {
+                // --- Classic Word Processor Bottom Status Bar (MS Word / LibreOffice) ---
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    tonalElevation = 2.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        0.5.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Left Section: Page count, Words, Characters, Save status
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "${stats.wordCount} words • ${stats.characterCountWithSpaces} characters",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            // Clickable Page Number indicator
+                            Surface(
+                                onClick = { showOutline = true },
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "Page 1 of ${stats.pageCount}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+
+                            // Clickable Word & Character counter
+                            Surface(
+                                onClick = { showStats = true },
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "${stats.wordCount} words",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
 
                             if (uiState.statusMessage != null) {
+                                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                 Text(
                                     text = uiState.statusMessage ?: "",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-                            } else {
-                                Text(
-                                    text = "Estimated ${stats.pageCount} page${if (stats.pageCount > 1) "s" else ""}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        }
+
+                        // Right Section: Layout View Toggles, Ruler, and Zoom Stepper
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Print Layout View Icon Toggle
+                            IconButton(
+                                onClick = {
+                                    if (!uiState.isPrintLayoutMode) viewModel.togglePrintLayoutMode()
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = "Print Layout",
+                                    modifier = Modifier.size(15.dp),
+                                    tint = if (uiState.isPrintLayoutMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
+                            }
+
+                            // Web Reflow View Icon Toggle
+                            IconButton(
+                                onClick = {
+                                    if (uiState.isPrintLayoutMode) viewModel.togglePrintLayoutMode()
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Article,
+                                    contentDescription = "Web Reflow Layout",
+                                    modifier = Modifier.size(15.dp),
+                                    tint = if (!uiState.isPrintLayoutMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+
+                            // Ruler Toggle
+                            IconButton(
+                                onClick = { showRuler = !showRuler },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Straighten,
+                                    contentDescription = "Toggle Ruler",
+                                    modifier = Modifier.size(15.dp),
+                                    tint = if (showRuler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+
+                            // Zoom -
+                            IconButton(
+                                onClick = { zoomScale = (zoomScale - 0.15f).coerceAtLeast(0.70f) },
+                                modifier = Modifier.size(24.dp),
+                                enabled = zoomScale > 0.70f
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(12.dp))
+                            }
+
+                            // Zoom Percentage indicator
+                            Text(
+                                text = "${(zoomScale * 100).toInt()}%",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clickable { zoomScale = 1.0f }
+                                    .padding(horizontal = 2.dp)
+                            )
+
+                            // Zoom +
+                            IconButton(
+                                onClick = { zoomScale = (zoomScale + 0.15f).coerceAtMost(1.50f) },
+                                modifier = Modifier.size(24.dp),
+                                enabled = zoomScale < 1.50f
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(12.dp))
                             }
                         }
                     }
@@ -215,10 +459,13 @@ fun EditorScreen(
                     )
                 }
 
-                // Interactive Document Canvas
+                // Interactive Document Canvas (with Print Layout, Ruler, and Zoom Scale)
                 DocumentCanvas(
                     document = uiState.document,
                     activeBlockIndex = uiState.activeBlockIndex,
+                    isPrintLayout = uiState.isPrintLayoutMode,
+                    showRuler = showRuler,
+                    zoomScale = zoomScale,
                     onSelectBlock = { viewModel.selectBlock(it) },
                     onUpdateText = { idx, text -> viewModel.updateParagraphText(idx, text) },
                     onSplitParagraph = { idx, offset -> viewModel.splitParagraph(idx, offset) },
@@ -250,7 +497,7 @@ fun EditorScreen(
         }
     }
 
-    // Dialogs
+    // Dialogs & Modals
     if (showPageSetup) {
         PageSetupDialog(
             currentSettings = uiState.document.pageSettings,
@@ -274,6 +521,16 @@ fun EditorScreen(
             document = uiState.document,
             onSelectBlockIndex = { viewModel.selectBlock(it) },
             onDismiss = { showOutline = false }
+        )
+    }
+
+    if (showCustomTableDialog) {
+        CustomTableDialog(
+            onInsertTable = { r, c ->
+                viewModel.insertTable(r, c)
+                showCustomTableDialog = false
+            },
+            onDismiss = { showCustomTableDialog = false }
         )
     }
 
@@ -331,11 +588,21 @@ fun EditorScreen(
             activeBlock = viewModel.activeBlock,
             onApplyFontFamily = { viewModel.applyFontFamily(it) },
             onApplyFontSizeDelta = { viewModel.applyFontSizeDelta(it) },
+            onToggleBold = { viewModel.toggleBold() },
+            onToggleItalic = { viewModel.toggleItalic() },
+            onToggleUnderline = { viewModel.toggleUnderline() },
+            onToggleStrikethrough = { viewModel.toggleStrikethrough() },
             onToggleSuperscript = { viewModel.toggleSuperscript() },
             onToggleSubscript = { viewModel.toggleSubscript() },
             onApplyColor = { viewModel.applyColor(it) },
             onApplyHighlight = { viewModel.applyHighlight(it) },
             onClearFormatting = { viewModel.clearFormatting() },
+            onApplyStyle = { viewModel.applyStyle(it) },
+            onApplyAlignment = { viewModel.applyAlignment(it) },
+            onToggleBulletList = { viewModel.toggleBulletList() },
+            onToggleNumberedList = { viewModel.toggleNumberedList() },
+            onIndent = { viewModel.indent() },
+            onOutdent = { viewModel.outdent() },
             onDismiss = { showExpandedFormat = false }
         )
     }
@@ -348,6 +615,7 @@ fun EditorScreen(
                 OutlinedTextField(
                     value = renameText,
                     onValueChange = { renameText = it },
+                    label = { Text("Document Title") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -355,37 +623,34 @@ fun EditorScreen(
             confirmButton = {
                 Button(onClick = {
                     if (renameText.isNotBlank()) {
-                        viewModel.updateTitle(renameText)
+                        viewModel.updateTitle(renameText.trim())
                     }
                     showRenameDialog = false
                 }) {
-                    Text("Rename")
+                    Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
 
+    // Overflow Bottom Sheet / Menu
     if (overflowMenuExpanded) {
         ModalBottomSheet(
             onDismissRequest = { overflowMenuExpanded = false },
-            sheetState = rememberModalBottomSheetState()
+            dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp)
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .navigationBarsPadding()
             ) {
-                Text(
-                    text = "Document Tools",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Text("Document Options", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
                 Surface(
                     onClick = {
@@ -399,7 +664,7 @@ fun EditorScreen(
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.SettingsOverscan, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text("Page Setup (Margins & Size)", fontSize = 14.sp)
+                        Text("Page Setup (Margins & Dimensions)", fontSize = 14.sp)
                     }
                 }
 
@@ -486,7 +751,7 @@ fun SaveStatusIndicator(saveState: SaveState) {
                     modifier = Modifier.size(11.dp)
                 )
                 Spacer(modifier = Modifier.width(3.dp))
-                Text("Saved", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Saved to device", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             SaveState.SAVING -> {
                 CircularProgressIndicator(

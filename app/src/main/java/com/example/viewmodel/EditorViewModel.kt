@@ -33,6 +33,7 @@ data class EditorUiState(
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val isFocusMode: Boolean = false,
+    val isPrintLayoutMode: Boolean = true,
     val isSearching: Boolean = false,
     val searchQuery: String = "",
     val replaceQuery: String = "",
@@ -269,6 +270,11 @@ class EditorViewModel(
 
     fun toggleFocusMode() {
         _uiState.value = _uiState.value.copy(isFocusMode = !_uiState.value.isFocusMode)
+    }
+
+    fun togglePrintLayoutMode() {
+        _uiState.value = _uiState.value.copy(isPrintLayoutMode = !_uiState.value.isPrintLayoutMode)
+        showStatus(if (_uiState.value.isPrintLayoutMode) "Print Layout Mode (Page View)" else "Mobile Flow Mode (Reflow)")
     }
 
     // --- Search & Replace ---
