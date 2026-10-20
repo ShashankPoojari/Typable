@@ -1,0 +1,1275 @@
+MASTER BUILD PROMPT — TYPABLE
+
+Professional, Advanced, Customizable Android Word Processor
+
+You are acting as a principal Android architect, senior Kotlin engineer, document-format engineer, rich-text editing specialist, UI/UX designer, accessibility engineer, performance engineer, security engineer, QA engineer, and release engineer.
+
+Your mission is to design, implement, debug, test, and prepare TYPABLE: a professional-grade, feature-rich Android word processor with a distinctive minimalist interface, powerful document editing capabilities, extensive customization, broad document-format support, and production-quality engineering.
+
+This is a real application development assignment, not a mockup, tutorial, proof of concept, or UI demonstration.
+
+Build a complete native Android project with working features, persistent data, robust editing behavior, reliable file handling, carefully designed interfaces, and reproducible release instructions.
+
+The final result must be ready for real-device validation and release once all applicable checks have passed.
+
+---
+
+1. APPLICATION IDENTITY
+
+Application name: Typable
+
+Requested package name: Shashank.Word.Typable
+
+Recommended lowercase Android application ID: shashank.word.typable
+
+Before configuring the project, explain that lowercase reverse-domain-style identifiers are the conventional choice for Android applications. Preserve the requested identifier in the specification, but use "shashank.word.typable" for the actual namespace, source packages, and application ID if the recommended form is accepted.
+
+Do not use inconsistent identifiers across Gradle, Kotlin packages, manifests, tests, and documentation.
+
+Display name: Typable
+
+Product category: Professional mobile word processor.
+
+Primary platform: Android phones and tablets.
+
+Architecture: Native Android.
+
+Language: Kotlin.
+
+UI framework: Jetpack Compose, Material 3, and a carefully engineered document-editing component.
+
+Design philosophy: Minimalist, typography-first, efficient, customizable, distraction-free, accessible, and dependable.
+
+Operating model: Offline-first, with local document storage and no mandatory account.
+
+ABSOLUTE PROHIBITION ON AI FEATURES
+
+Typable must not contain AI features.
+
+Do not implement or integrate:
+
+- AI writing or text generation.
+- AI rewriting, paraphrasing, or summarization.
+- AI proofreading or AI grammar correction.
+- AI chat assistants.
+- AI-powered document search or semantic search.
+- AI-generated templates.
+- LLM APIs or AI model SDKs.
+- AI cloud inference.
+- AI-based recommendations.
+- AI agents or autonomous actions.
+- Artificially generated document content.
+- AI-powered OCR or transcription.
+
+Implement conventional, deterministic word-processing functionality instead.
+
+Ordinary spell-check integration through Android-supported facilities, conventional dictionaries, deterministic search, rule-based formatting, and standard text-processing algorithms are permitted.
+
+Do not add network connectivity, analytics, telemetry, advertising, or account infrastructure unless a specifically approved, non-AI feature genuinely requires it.
+
+2. NON-NEGOTIABLE QUALITY STANDARD
+
+The application must not contain:
+
+- Fake or simulated document editing.
+- Buttons with empty event handlers.
+- Placeholder pages disguised as finished features.
+- Dummy export files.
+- Fake saving indicators.
+- Hardcoded document statistics presented as real.
+- Sample documents inserted without user consent.
+- Unimplemented toolbar commands.
+- Broken imports or exports hidden behind success messages.
+- Empty settings that do nothing.
+- Nonfunctional undo and redo.
+- Incorrect character counts.
+- Text formatting that disappears after saving.
+- Silent document corruption.
+- Unhandled crashes during editing.
+- Fake autosave.
+- Hardcoded permission-granted states.
+- Dead navigation destinations.
+- Artificial feature restrictions introduced merely to simplify implementation.
+- Unnecessary dependencies or architectural abstractions.
+- Known critical bugs concealed through exception suppression.
+- Claims that tests passed when they were not executed.
+
+Every visible control must have a defined and implemented behavior.
+
+Where an operation cannot be performed, explain the reason and provide an actionable error or an appropriate alternative.
+
+Do not sacrifice document integrity or correctness to achieve a visually impressive demonstration.
+
+3. PRODUCT REQUIREMENTS AND FEATURE TRACEABILITY
+
+Before implementation, create a complete feature inventory.
+
+For each feature, record:
+
+- Feature identifier.
+- User-facing behavior.
+- Relevant screens and controls.
+- Data model and storage behavior.
+- Dependencies and permissions.
+- Edge cases.
+- Unit and integration tests.
+- Acceptance criteria.
+- Implementation status.
+
+Use these statuses:
+NOT STARTED, IN PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED.
+
+A feature must not be marked VERIFIED solely because its source code exists.
+
+Prioritize features according to dependencies, but do not silently omit requested capabilities.
+
+If a feature requires an external library, native platform API, additional licensing, or complex format interoperability, identify that requirement before choosing an implementation.
+
+4. DOCUMENT EDITING ENGINE
+
+The document editor is the heart of Typable.
+
+Do not attempt to implement a professional rich-text editor by placing a basic text field inside a decorated screen.
+
+Choose and document a suitable editing architecture that supports rich-text ranges, selection, formatting, composition, cursor positioning, undo/redo, structured content, persistence, and export.
+
+Build an editor engine that separates document structure from presentation.
+
+Use a structured document model supporting, where applicable:
+
+- Paragraphs.
+- Text runs.
+- Character formatting.
+- Paragraph formatting.
+- Heading levels.
+- Lists and nested lists.
+- Tables and table cells.
+- Inline images.
+- Hyperlinks.
+- Page and section breaks.
+- Headers and footers.
+- Document metadata.
+- Page-layout settings.
+- Comments and tracked changes, where implemented.
+- Embedded or linked objects, where supported.
+
+Define a canonical document representation that can preserve formatting independently of the editing UI.
+
+Maintain stable identifiers for document blocks and relevant inline elements.
+
+Preserve document structure during editing, saving, reopening, and supported format conversions.
+
+Editing fundamentals
+
+Implement:
+
+- Reliable text insertion and deletion.
+- Cursor navigation.
+- Selection and replacement.
+- Select all.
+- Copy, cut, and paste.
+- Clipboard integration.
+- Contextual selection menus.
+- Long-press selection.
+- Keyboard shortcuts.
+- IME composition support.
+- Multiline text editing.
+- Unicode and emoji handling.
+- Correct handling of combining characters.
+- Bidirectional text.
+- Multilingual text.
+- Undo and redo.
+- Search and replace.
+- Find next and previous.
+- Selection-preserving formatting operations.
+- Safe editing of empty documents.
+- Editing of large documents.
+- Recovery from interrupted input.
+- Stable cursor and selection behavior after document transformations.
+
+Do not break the Android input method framework or intercept every keyboard event unnecessarily.
+
+Ensure formatting operations do not destroy text, move the cursor unpredictably, or overwrite concurrent edits.
+
+Rich text formatting
+
+Support the following where applicable:
+
+Character formatting:
+
+- Bold.
+- Italic.
+- Underline.
+- Strikethrough.
+- Superscript.
+- Subscript.
+- Font family.
+- Font size.
+- Font color.
+- Text highlight.
+- Background color.
+- Character spacing where supported.
+- Baseline and typography controls where supported.
+- Clear direct formatting.
+- Format painter or copy/paste formatting.
+
+Paragraph formatting:
+
+- Left alignment.
+- Center alignment.
+- Right alignment.
+- Justified alignment.
+- Line spacing.
+- Space before and after paragraphs.
+- First-line indentation.
+- Left and right indentation.
+- Paragraph direction.
+- Keep-with-next and widow/orphan controls where supported.
+- Page-break-before behavior where supported.
+- Borders and shading.
+- Tabs and tab stops where supported.
+
+Document styles:
+
+- Normal.
+- Title.
+- Subtitle.
+- Heading 1 through Heading 6.
+- Quote.
+- Code.
+- Caption.
+- List styles.
+- Custom named styles.
+
+Provide style editing, style application, and consistent style inheritance.
+
+Distinguish named styles from direct formatting. Preserve that distinction in the document model and supported export formats.
+
+Lists
+
+Implement:
+
+- Bulleted lists.
+- Numbered lists.
+- Alphabetical lists.
+- Roman numeral lists where supported.
+- Nested lists.
+- Indentation changes.
+- Continue numbering.
+- Restart numbering.
+- List marker configuration.
+- Keyboard-based list continuation.
+- Exit list behavior.
+- Correct list numbering after insertion, deletion, and reordering.
+
+Tables
+
+Implement:
+
+- Table insertion.
+- Row and column insertion.
+- Row and column deletion.
+- Cell selection.
+- Cell editing.
+- Cell merging and splitting where supported.
+- Column widths.
+- Row heights where supported.
+- Cell alignment.
+- Cell padding.
+- Borders.
+- Shading.
+- Header rows.
+- Table resizing.
+- Clipboard operations for supported table selections.
+- Sensible overflow behavior.
+- Export and import preservation.
+
+Images and objects
+
+Implement:
+
+- Image insertion through Android's document or media picker.
+- Image resizing.
+- Aspect-ratio preservation.
+- Image alignment.
+- Alternative text.
+- Inline versus supported anchored placement.
+- Image replacement and deletion.
+- Image compression options.
+- Image captions where supported.
+- Safe handling of unavailable source files.
+- Preservation of image data during save and reopen.
+
+Do not claim support for arbitrary floating objects unless the editor and export engine genuinely implement them.
+
+5. PAGE LAYOUT AND PROFESSIONAL DOCUMENT DESIGN
+
+Provide a configurable page-layout system.
+
+Support:
+
+- A4.
+- Letter.
+- Legal.
+- Custom page dimensions within reasonable limits.
+- Portrait and landscape.
+- Page margins.
+- Gutter margins where supported.
+- Page orientation.
+- Page numbering.
+- Headers.
+- Footers.
+- Different first-page headers and footers where supported.
+- Section breaks.
+- Page breaks.
+- Page borders.
+- Background color.
+- Document title and metadata.
+- Print preview.
+- Document outline.
+- Table of contents generated from heading styles.
+- Page count and word count.
+- Print-specific layout controls.
+
+Implement realistic page layout and pagination.
+
+If the editing surface uses continuous scrolling, ensure print preview and PDF export still use a genuine pagination engine.
+
+Do not simulate page breaks by inserting arbitrary blank spaces or newline characters.
+
+Maintain consistent document geometry between editing, preview, printing, and supported export formats.
+
+Explain any layout differences caused by unsupported features or unavailable fonts.
+
+6. IMPORT AND EXPORT
+
+Implement a reliable file-handling layer.
+
+Target formats:
+
+- DOCX.
+- ODT.
+- RTF.
+- TXT.
+- Markdown.
+- HTML.
+- PDF export.
+- CSV import or export only where a specific table-related use case is justified.
+
+Investigate legacy DOC support separately. Do not claim full support if the selected implementation cannot reliably parse or produce that format.
+
+For each format, document whether the operation is:
+
+- Read and edit.
+- Read only.
+- Export only.
+- Lossless for supported features.
+- Partially compatible.
+
+DOCX
+
+Use a mature, legally compatible document-format library or a carefully engineered implementation.
+
+Preserve supported:
+
+- Paragraphs and runs.
+- Styles.
+- Lists.
+- Tables.
+- Images.
+- Hyperlinks.
+- Page setup.
+- Headers and footers.
+- Document metadata.
+
+Handle unsupported WordprocessingML constructs gracefully.
+
+Do not destroy the original document when saving a converted copy.
+
+ODT and RTF
+
+Implement actual parsers and serializers through suitable libraries or well-defined format implementations.
+
+Preserve supported formatting and structure.
+
+Do not rename plain-text output to an RTF, DOCX, or ODT extension.
+
+HTML and Markdown
+
+HTML import/export:
+
+- Sanitize imported HTML.
+- Preserve supported semantic structure.
+- Handle headings, paragraphs, lists, links, images, tables, and inline formatting.
+- Prevent scripts and unsafe embedded content from executing.
+- Resolve linked resources safely.
+
+Markdown import/export:
+
+- Support headings, paragraphs, emphasis, links, images, lists, blockquotes, code blocks, and tables where supported.
+- Preserve Markdown semantics when possible.
+- Clearly explain constructs that cannot represent the complete rich-text document.
+
+PDF export
+
+Generate actual PDF documents using a suitable Android-compatible rendering or PDF generation library.
+
+Support:
+
+- Correct page dimensions.
+- Pagination.
+- Margins.
+- Typography.
+- Headers and footers.
+- Page numbering.
+- Images.
+- Tables.
+- Hyperlinks where supported.
+- Searchable text where possible.
+- Appropriate font embedding where licensing and technical constraints permit.
+
+PDF is not the canonical editable document format. Never imply that importing PDF preserves all original editing structure.
+
+Android file integration
+
+Use Storage Access Framework:
+
+- ACTION_OPEN_DOCUMENT.
+- ACTION_CREATE_DOCUMENT.
+- ACTION_OPEN_DOCUMENT_TREE when directory access is genuinely required.
+
+Use content URIs and persist URI permissions when appropriate.
+
+Avoid unrestricted filesystem access.
+
+Implement:
+
+- Open existing documents.
+- Save.
+- Save As.
+- Export a copy.
+- File overwrite confirmation.
+- Import validation.
+- Unsupported-format detection.
+- Corrupt-file handling.
+- Filename sanitization.
+- Correct MIME types.
+- Correct extensions.
+- Temporary file cleanup.
+- Large-file safeguards.
+- Atomic local writes where applicable.
+- Recovery when a destination becomes unavailable.
+
+Preserve source documents unless the user explicitly requests overwriting them.
+
+7. DOCUMENT MANAGEMENT
+
+Build a complete document library.
+
+Features:
+
+- Create document.
+- Open document.
+- Rename document.
+- Duplicate document.
+- Delete document.
+- Restore from trash where supported.
+- Favorite documents.
+- Pin important documents.
+- Recent documents.
+- Sort by name, date, size, and relevant metadata.
+- Grid and list views.
+- Search by filename and indexed document text.
+- Filter by document type.
+- Filter by favorite and recent status.
+- Multi-select.
+- Batch deletion and export.
+- Document properties.
+- Word count and character count.
+- Last modified timestamp.
+- File location.
+- Empty-state guidance.
+- Storage usage information.
+- Recovery of interrupted editing sessions.
+
+Provide a document trash or recovery mechanism when feasible, with explicit retention rules.
+
+Do not claim indexing of document content until the indexing process is implemented and tested.
+
+8. AUTOSAVE, HISTORY, AND RECOVERY
+
+Document integrity is critical.
+
+Implement:
+
+- Automatic saving.
+- Configurable autosave delay.
+- Explicit save.
+- Save status indicator.
+- Dirty-state tracking.
+- Background persistence without blocking typing.
+- Atomic writes or a reliable transactional strategy.
+- Document version snapshots where appropriate.
+- Undo and redo.
+- Session recovery.
+- Recovery after process termination.
+- Conflict detection between editing sessions.
+- Unsaved-change warnings when needed.
+- Crash recovery.
+- Corrupt-document detection.
+- Safe recovery from incomplete writes.
+
+Never discard the last valid document version because an autosave failed.
+
+Do not show "Saved" until the persistence operation has succeeded.
+
+Use a debounced persistence mechanism that cannot accidentally save stale editor state over newer changes.
+
+Use immutable snapshots or equivalent safe synchronization where appropriate.
+
+For large documents, use efficient change tracking rather than serializing the entire document on every keystroke without measurement.
+
+9. SEARCH, NAVIGATION, AND RESEARCH TOOLS
+
+Implement conventional, non-AI editing utilities:
+
+- Find.
+- Find next.
+- Find previous.
+- Case-sensitive search.
+- Whole-word matching.
+- Replace.
+- Replace all with confirmation.
+- Search within the current document.
+- Go to page.
+- Go to heading.
+- Document outline.
+- Bookmark positions.
+- Navigate between headings.
+- Word count.
+- Character count with and without spaces.
+- Paragraph count.
+- Page count.
+- Reading position restoration.
+- Selected-text statistics.
+
+Ensure search offsets remain correct with Unicode, emoji, and formatted text.
+
+Do not implement semantic search or AI-powered suggestions.
+
+10. ADVANCED PROFESSIONAL FEATURES
+
+Implement where compatible with the selected editor architecture and format libraries:
+
+- Footnotes and endnotes.
+- Cross-references.
+- Automatic table of contents.
+- Captions and figure numbering.
+- Page and section breaks.
+- Bookmarks.
+- Hyperlink editing.
+- Document properties.
+- Custom styles.
+- Custom templates.
+- Numbered headings.
+- Headers and footers.
+- Page numbering formats.
+- Line numbering where feasible.
+- Comments and annotations.
+- Track changes and revision acceptance/rejection.
+- Compare supported document revisions.
+- Watermarks.
+- Document protection or editing restrictions where feasible.
+- Custom keyboard shortcuts.
+- Text expansion snippets.
+- Saved reusable blocks.
+- Special character insertion.
+- Symbol picker.
+- Unicode character information.
+- Ligature and typography handling according to the rendering engine.
+- Spell-check integration.
+- Language selection.
+- Dictionary integration through supported mechanisms.
+- Hyphenation where supported.
+- Smart punctuation as an optional deterministic setting.
+- Nonprinting formatting marks.
+- Paragraph and page-break visualization.
+- Ruler and indentation controls.
+- Word and character limits where configured.
+- Document metadata editor.
+- Print integration.
+- Share and export integration.
+
+Do not label a feature as implemented unless it functions end to end.
+
+If comments or track changes are added, implement the underlying data model and persistence, not merely a toolbar icon.
+
+Do not claim full compatibility with Microsoft Word or LibreOffice. Publish a clear compatibility matrix based on actual tests.
+
+11. CUSTOMIZATION AND PERSONALIZATION
+
+Typable must be highly customizable without becoming visually chaotic.
+
+Implement:
+
+- Light theme.
+- Dark theme.
+- Follow system theme.
+- Custom accent color.
+- Custom editor background and text colors.
+- Typography settings.
+- Font size controls.
+- Line spacing presets.
+- Page width and reading layout controls.
+- Editor density.
+- Compact and comfortable modes.
+- Configurable toolbar.
+- Configurable formatting shortcuts.
+- Toolbar item ordering where feasible.
+- Contextual menus.
+- Keyboard shortcut configuration where appropriate.
+- Gesture settings.
+- Default document format.
+- Default page size.
+- Default margins.
+- Default font and paragraph style.
+- Autosave interval.
+- Word-count visibility.
+- Status bar configuration.
+- Focus mode.
+- Full-screen editing.
+- Distraction-free writing mode.
+- Document library layout preference.
+- Import/export defaults.
+- Haptic feedback preference.
+- Reduced-motion option.
+- Settings reset.
+- Export/import of app preferences where safe.
+
+Store preferences persistently.
+
+Changing a preference must immediately update the interface when appropriate and survive application restarts.
+
+Never allow customization to create unreadable text, invisible controls, or inaccessible contrast without warning.
+
+12. MODERN MINIMALIST UI/UX
+
+Create a distinctive, premium interface designed for actual writing productivity.
+
+Avoid generic AI-generated design patterns.
+
+Use:
+
+- Strong typographic hierarchy.
+- Deliberate whitespace.
+- Restrained accent colors.
+- Consistent spacing.
+- Precise alignment.
+- Minimal visual noise.
+- Carefully designed editing surfaces.
+- Useful contextual toolbars.
+- Fast, unobtrusive navigation.
+- Purposeful animations.
+- Clear selection states.
+- Reliable touch targets.
+- Keyboard-aware layouts.
+- Consistent icons.
+- Subtle borders and elevation only where meaningful.
+
+Avoid:
+
+- Excessive gradient backgrounds.
+- Unnecessary glassmorphism.
+- Too many nested cards.
+- Decorative charts unrelated to writing.
+- Randomly chosen accent colors.
+- Excessive rounded rectangles.
+- Oversized dashboard statistics.
+- Emoji used as interface icons.
+- Constant animations.
+- Cluttered editing toolbars.
+- Hidden essential commands without discoverable alternatives.
+
+Use Material 3 as the design foundation, with a carefully customized product identity.
+
+Required screens
+
+1. First-launch onboarding.
+2. Document library.
+3. Create-document menu.
+4. Rich-text editor.
+5. Formatting toolbar.
+6. Expanded formatting panel.
+7. Insert menu.
+8. Table editor.
+9. Image insertion and adjustment.
+10. Search and replace.
+11. Document outline.
+12. Page setup.
+13. Print preview.
+14. Import and export.
+15. Document properties.
+16. Version history and recovery.
+17. Templates.
+18. Favorites and recent documents.
+19. Settings.
+20. Theme customization.
+21. Toolbar customization.
+22. Keyboard shortcuts reference.
+23. Permissions and privacy.
+24. About and licenses.
+25. Error and recovery screens.
+
+Use navigation patterns appropriate to phones and larger screens.
+
+Required UI states
+
+- Empty library.
+- Empty document.
+- Loading a large document.
+- Saving.
+- Saved.
+- Save failure.
+- Importing.
+- Exporting.
+- Import failure.
+- Unsupported format.
+- Corrupt document.
+- Missing external file.
+- Search with no results.
+- Permission denied.
+- Storage unavailable.
+- Recovery available.
+- Recovery failed.
+- Destructive action confirmation.
+- Read-only document.
+- Keyboard visible.
+- Large text scaling.
+- Landscape orientation.
+- Tablet and resizable-window layouts.
+
+13. MOBILE-FIRST AND MULTI-DEVICE SUPPORT
+
+Design for:
+
+- Compact Android phones.
+- Large phones.
+- Foldable devices.
+- Android tablets.
+- Landscape layouts.
+- Resizable windows where supported.
+- External keyboards.
+- Mouse and trackpad input where available.
+- Stylus input where supported.
+- Split-screen usage.
+- Different display densities.
+- Different font scales.
+
+Use adaptive layouts and appropriate window-size classes.
+
+On compact devices, prioritize document content and contextual formatting controls.
+
+On larger devices, use suitable multi-pane layouts, navigation rails, side panels, document outline, and persistent formatting controls where useful.
+
+Do not simply stretch the phone interface across a tablet.
+
+Preserve editor state through rotation, configuration changes, and process recreation wherever feasible.
+
+14. ACCESSIBILITY AND INTERNATIONALIZATION
+
+Implement:
+
+- TalkBack-compatible controls.
+- Correct accessibility semantics.
+- Descriptive labels.
+- Accessible dialogs.
+- Keyboard navigation.
+- Minimum recommended touch targets.
+- Adequate contrast.
+- Scalable text.
+- Reduced-motion support.
+- Correct focus order.
+- Accessible selection and formatting states.
+- Screen-reader-friendly document navigation.
+- Locale-aware formatting.
+- Unicode-safe editing.
+- Right-to-left layout support.
+- Mixed-direction text handling.
+- External keyboard shortcuts.
+- Localized string resources.
+
+Test Devanagari, Marathi, Hindi, English, emoji, accented characters, combining marks, and mixed-script documents.
+
+Do not split grapheme clusters incorrectly during deletion, selection, or cursor movement.
+
+15. ANDROID PERMISSIONS AND SECURITY
+
+Create a permissions inventory before writing the Android manifest.
+
+Typable is primarily an offline document editor. Request only permissions justified by implemented functionality.
+
+Expected minimal permission strategy
+
+INTERNET:
+Do not declare this permission unless an explicitly approved feature requires network access. Local editing, local document storage, and the Android file picker do not inherently require unrestricted internet access.
+
+Storage:
+Prefer Android Storage Access Framework, including ACTION_OPEN_DOCUMENT, ACTION_CREATE_DOCUMENT, and user-selected folder access where required.
+
+Do not request MANAGE_EXTERNAL_STORAGE merely to open and save documents.
+
+Media:
+Use Android's photo picker or document picker for user-selected images and files. Add media runtime permissions only if a specific feature genuinely requires broader media-library access.
+
+Notifications:
+Do not request POST_NOTIFICATIONS unless the application implements user-visible notifications that justify it.
+
+Microphone:
+Do not request RECORD_AUDIO. Typable has no AI transcription or voice-recording features.
+
+Camera:
+Do not request CAMERA unless an explicitly implemented camera-capture feature is approved.
+
+Contacts, location, SMS, phone, calendar, Bluetooth, and accessibility:
+Do not request these permissions for ordinary word processing.
+
+Foreground services:
+Do not introduce a foreground service unless a specific, legitimate feature requires one.
+
+Exact alarms:
+Do not declare exact-alarm permissions unless a genuine supported feature requires them.
+
+Overlay permission:
+Do not request SYSTEM_ALERT_WINDOW for ordinary editing or floating formatting controls inside the app.
+
+Boot completed:
+Do not request RECEIVE_BOOT_COMPLETED unless a genuine scheduled feature requires it.
+
+Battery optimization exemption:
+Do not request exemption for ordinary editing or autosave.
+
+Permission handling requirements
+
+For every permission that is added:
+
+- Document the feature that requires it.
+- Verify its Android version requirements.
+- Request it only at the appropriate point.
+- Handle denial safely.
+- Recheck authorization when necessary.
+- Explain how the feature behaves without access.
+- Test revoked and unavailable authorization states.
+
+Use the principle of least privilege.
+
+Never claim that a permission is required if the same feature can be implemented through a user-selected content URI or a less privileged API.
+
+File security
+
+- Use content URIs correctly.
+- Respect URI-grant lifetimes.
+- Validate imported files.
+- Handle malformed archives and XML safely.
+- Guard against path traversal.
+- Avoid unsafe temporary-file handling.
+- Prevent accidental overwrites.
+- Sanitize HTML imports.
+- Do not execute imported scripts.
+- Avoid logging document contents.
+- Protect internal application data.
+- Avoid transmitting documents externally.
+- Avoid unnecessary analytics and telemetry.
+- Include dependency license notices.
+- Handle backups and sensitive documents deliberately.
+
+Do not add authentication or cloud infrastructure without an approved requirement.
+
+16. PERFORMANCE AND DOCUMENT INTEGRITY
+
+The editor must remain responsive during ordinary and demanding editing tasks.
+
+Implement:
+
+- Efficient document data structures.
+- Incremental updates where appropriate.
+- Safe background parsing.
+- Safe background export.
+- Cancellation of obsolete operations.
+- Debounced persistence.
+- Bounded memory usage.
+- Efficient list rendering.
+- Large-document safeguards.
+- Proper lifecycle cleanup.
+- Thread-safe state management.
+- Stable undo history.
+- Correct selection restoration.
+- No unnecessary main-thread disk access.
+
+Profile realistic documents rather than relying on assumptions.
+
+Test documents containing large paragraphs, many formatted runs, images, long tables, extensive lists, and multilingual text.
+
+Define practical performance targets, measure them when tooling permits, and report the device and conditions used.
+
+17. ARCHITECTURE AND PROJECT STRUCTURE
+
+Use a pragmatic native Android architecture.
+
+Recommended technology:
+
+- Kotlin.
+- Jetpack Compose.
+- Material 3.
+- ViewModel.
+- Coroutines and Flow.
+- Navigation Compose.
+- Room for structured metadata and internal persistence.
+- DataStore for application preferences.
+- A dedicated document model and editing engine.
+- Mature format libraries selected after compatibility and license evaluation.
+- Android Storage Access Framework.
+- JUnit and Android testing frameworks.
+
+Do not force Room to store every document as individual database rows if a different persistence strategy is more appropriate. Justify the chosen canonical document storage model.
+
+Suggested organization:
+
+app/
+core/
+common/
+design/
+database/
+storage/
+documentmodel/
+editor/
+fileformats/
+export/
+accessibility/
+feature/
+library/
+editor/
+search/
+templates/
+history/
+settings/
+page_setup/
+import_export/
+testing/
+docs/
+
+Use Gradle modules where they provide real architectural or build benefits. Do not create dozens of artificial modules.
+
+Separate:
+
+- Document representation.
+- Editing operations.
+- Selection and cursor management.
+- Undo and redo.
+- Formatting commands.
+- Persistence.
+- Import and export.
+- Pagination.
+- UI state.
+- Settings.
+- Testing.
+
+Document important architectural decisions and library trade-offs.
+
+18. TESTING AND BUG FIXING
+
+Testing is mandatory.
+
+Unit tests
+
+Test:
+
+- Document model operations.
+- Formatting ranges.
+- Cursor and selection behavior.
+- Undo and redo.
+- Paragraph styles.
+- List numbering.
+- Table operations.
+- Search and replace.
+- Word and character counts.
+- Serialization and deserialization.
+- Document metadata.
+- Autosave scheduling.
+- Dirty-state tracking.
+- Filename validation.
+- Unicode handling.
+- Import validation.
+- Pagination calculations where testable.
+
+Format compatibility tests
+
+Create representative fixture documents.
+
+Test import, editing, saving, and reopening.
+
+Verify preservation of supported:
+
+- Paragraphs.
+- Runs.
+- Styles.
+- Lists.
+- Tables.
+- Images.
+- Hyperlinks.
+- Page setup.
+- Headers and footers.
+- Metadata.
+
+Compare structural output rather than relying only on whether a file opens.
+
+Where practical, test representative documents created by Microsoft Word and LibreOffice without claiming universal compatibility.
+
+Integration tests
+
+Test:
+
+- Local document creation.
+- Save and reopen.
+- Save As.
+- File picker integration.
+- Content URI access.
+- Import and export.
+- Interrupted autosave.
+- Crash recovery.
+- Version restoration.
+- Database migrations.
+- Application restart.
+- External file unavailability.
+- Large-document behavior.
+
+UI tests
+
+Test:
+
+- Every primary screen.
+- Navigation.
+- Text insertion.
+- Text selection.
+- Formatting application.
+- Undo and redo.
+- Search and replace.
+- Toolbar customization.
+- Theme switching.
+- Keyboard interaction.
+- Dialogs.
+- Import and export.
+- Error states.
+- Large text scaling.
+- Rotation.
+- Tablet layouts.
+- Accessibility semantics.
+
+Adversarial testing
+
+Test:
+
+- Rapid typing and formatting.
+- Repeated undo and redo.
+- Large paste operations.
+- Empty clipboard.
+- Unicode and emoji.
+- Mixed right-to-left and left-to-right text.
+- Malformed DOCX and ODT archives.
+- Oversized images.
+- Unsupported file extensions.
+- Interrupted exports.
+- Storage exhaustion.
+- Missing source files.
+- Corrupted internal data.
+- Process termination during editing.
+- Repeated save requests.
+- Concurrent editing attempts where applicable.
+
+For each discovered bug:
+
+1. Reproduce the failure.
+2. Identify its root cause.
+3. Implement a real fix.
+4. Add a regression test.
+5. Rerun the affected test suite.
+6. Recheck adjacent functionality.
+7. Record unresolved limitations.
+
+Never disable tests or suppress errors just to obtain a successful build.
+
+19. BUILD, VALIDATION, AND RELEASE
+
+First inspect the available Google AI Studio environment.
+
+Determine whether it supports:
+
+- Project file creation.
+- Terminal commands.
+- Gradle builds.
+- Android SDK access.
+- Emulator testing.
+- Dependency downloads.
+- APK generation.
+- Release signing.
+
+Do not assume these capabilities exist.
+
+Generate the actual Android project, not merely a design document.
+
+Use compatible stable dependencies and the Gradle wrapper.
+
+Run applicable checks:
+
+./gradlew assembleDebug
+./gradlew test
+./gradlew lint
+./gradlew assembleRelease
+
+Adapt the commands to the actual project and available environment.
+
+Fix build failures and relevant warnings. Review lint output rather than blindly suppressing it.
+
+Verify that exported files open in suitable readers and that the packaged APK or AAB corresponds to the actual source.
+
+For release preparation:
+
+- Configure a production application ID.
+- Set appropriate versionCode and versionName.
+- Configure signing securely.
+- Never commit private signing keys.
+- Review target SDK requirements.
+- Audit dependencies and licenses.
+- Verify manifest declarations.
+- Verify backup behavior.
+- Verify crash and recovery handling.
+- Verify release artifact integrity.
+- Document installation and upgrade behavior.
+
+Do not claim Play Store approval, universal compatibility, complete DOCX fidelity, or a successful release build without evidence.
+
+20. IMPLEMENTATION SEQUENCE
+
+Follow this order:
+
+Phase 1: Requirements and feature matrix.
+
+Phase 2: Editing architecture and canonical document model.
+
+Phase 3: UI/UX design system and adaptive navigation.
+
+Phase 4: Android project foundation and persistence.
+
+Phase 5: Core editing engine and input handling.
+
+Phase 6: Rich formatting, lists, and tables.
+
+Phase 7: Document library, autosave, undo/redo, and recovery.
+
+Phase 8: Import/export and file-format interoperability.
+
+Phase 9: Pagination, page layout, printing, and PDF export.
+
+Phase 10: Customization, keyboard shortcuts, and accessibility.
+
+Phase 11: Automated testing and bug fixing.
+
+Phase 12: Security, performance, and compatibility testing.
+
+Phase 13: Release build and documentation.
+
+After each phase, report:
+
+- Files created or changed.
+- Features actually implemented.
+- Build results.
+- Tests executed and their actual outcomes.
+- Bugs found and fixed.
+- Known limitations.
+- Remaining work.
+- The next concrete implementation step.
+
+Do not generate a huge, inconsistent collection of source files in one response.
+
+Maintain a project inventory, keep APIs consistent, and verify integrations before continuing.
+
+If the environment has file-editing tools, use them to maintain the actual project. If it supports terminal execution, run the appropriate commands. If neither capability exists, provide the source in coherent files and clearly explain which verification steps remain unexecuted.
+
+21. FINAL ACCEPTANCE CHECKLIST
+
+The application is release-ready only when applicable requirements have been verified.
+
+[ ] Application identity is consistent.
+
+[ ] Project builds successfully.
+
+[ ] All primary navigation paths work.
+
+[ ] The editor supports reliable text entry and selection.
+
+[ ] Rich formatting persists after saving and reopening.
+
+[ ] Undo and redo work correctly.
+
+[ ] Autosave and recovery are verified.
+
+[ ] Document library operations work.
+
+[ ] Supported imports and exports pass compatibility tests.
+
+[ ] PDF export produces genuine, correctly paginated documents.
+
+[ ] Unsupported document features are reported honestly.
+
+[ ] No fake success states or placeholder controls remain.
+
+[ ] Required permissions are minimal and correctly handled.
+
+[ ] Accessibility and multilingual editing have been tested.
+
+[ ] Adaptive layouts have been reviewed.
+
+[ ] Unit tests pass.
+
+[ ] Applicable integration and UI tests pass.
+
+[ ] Android lint has been reviewed.
+
+[ ] No known release-blocking defects remain.
+
+[ ] Dependency licenses and security have been reviewed.
+
+[ ] Release artifact and signing configuration are verified.
+
+[ ] Build and installation instructions are complete.
+
+[ ] Unverified items and limitations are explicitly documented.
+
+22. FINAL REPORT
+
+Provide:
+
+1. Product overview.
+2. Complete feature inventory.
+3. Architecture and technology decisions.
+4. Project file tree.
+5. Implemented document-editing capabilities.
+6. Format compatibility matrix.
+7. Permission audit.
+8. Actual build results.
+9. Test pass/fail counts.
+10. Bug reports and fixes.
+11. Performance and accessibility findings.
+12. Known limitations.
+13. APK/AAB generation instructions.
+14. Installation and release instructions.
+15. Remaining work, if any.
+
+Clearly distinguish implemented, tested, verified, blocked, and unverified functionality.
+
+FINAL DIRECTIVE:
+
+Build Typable as a serious professional word processor, with correctness and document integrity taking priority over superficial feature counts.
+
+No AI features. No fake implementations. No misleading claims. No careless document-format conversions. No unverified assertions of production readiness.
+
+Implement the real application incrementally, test the editing engine and file formats rigorously, fix discovered defects, and deliver the most complete and maintainable product supported by the available tools.
