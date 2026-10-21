@@ -4,10 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.formats.DocxFormat
-import com.example.formats.HtmlFormat
-import com.example.formats.MarkdownFormat
-import com.example.formats.PlainTextFormat
+import com.example.formats.*
 import com.example.model.TypableDocument
 import com.example.storage.DocumentStorage
 import kotlinx.coroutines.Dispatchers
@@ -205,6 +202,21 @@ class LibraryViewModel(private val storage: DocumentStorage) : ViewModel() {
                     when {
                         filename.endsWith(".docx") || mimeType.contains("wordprocessingml") -> {
                             DocxFormat.importFromDocx(stream)
+                        }
+                        filename.endsWith(".odt") || mimeType.contains("opendocument.text") -> {
+                            OdtFormat.importFromOdt(stream)
+                        }
+                        filename.endsWith(".rtf") || mimeType.contains("rtf") -> {
+                            RtfFormat.importFromRtf(stream)
+                        }
+                        filename.endsWith(".epub") || mimeType.contains("epub") -> {
+                            EpubFormat.importFromEpub(stream)
+                        }
+                        filename.endsWith(".json") || filename.endsWith(".typable") || mimeType.contains("json") -> {
+                            JsonBackupFormat.importFromJson(stream, storage)
+                        }
+                        filename.endsWith(".csv") || filename.endsWith(".tsv") || mimeType.contains("csv") -> {
+                            CsvFormat.importFromCsv(stream)
                         }
                         filename.endsWith(".md") || mimeType.contains("markdown") -> {
                             MarkdownFormat.importFromMarkdown(stream)

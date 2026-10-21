@@ -121,6 +121,12 @@ fun LibraryScreen(
                             documentPickerLauncher.launch(
                                 arrayOf(
                                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "application/vnd.oasis.opendocument.text",
+                                    "application/rtf",
+                                    "text/rtf",
+                                    "application/epub+zip",
+                                    "application/json",
+                                    "text/csv",
                                     "text/plain",
                                     "text/markdown",
                                     "text/html",

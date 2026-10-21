@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -146,16 +147,20 @@ fun ExpandedFormattingBottomSheet(
 
                     // Font Family Selector
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Font Family", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Font Family (Google Fonts & System)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            DocumentFont.values().forEach { font ->
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            DocumentFont.values().filter { it != DocumentFont.CUSTOM }.forEach { font ->
                                 val isSelected = currentRun.fontFamily == font
+                                val previewFamily = com.example.storage.CustomFontManager.getComposeFontFamily(context, font)
                                 OutlinedButton(
                                     onClick = { onApplyFontFamily(font) },
-                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    modifier = Modifier.height(40.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                                     ),
@@ -165,13 +170,9 @@ fun ExpandedFormattingBottomSheet(
                                     )
                                 ) {
                                     Text(
-                                        text = font.displayName.substringBefore(" "),
+                                        text = font.displayName,
                                         fontSize = 12.sp,
-                                        fontFamily = when (font) {
-                                            DocumentFont.SERIF -> FontFamily.Serif
-                                            DocumentFont.MONOSPACE -> FontFamily.Monospace
-                                            else -> FontFamily.Default
-                                        },
+                                        fontFamily = previewFamily,
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 }

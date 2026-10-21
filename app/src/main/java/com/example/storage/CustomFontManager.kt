@@ -96,12 +96,16 @@ object CustomFontManager {
             DocumentFont.SYSTEM_SANS -> FontFamily.Default
             DocumentFont.SERIF -> FontFamily.Serif
             DocumentFont.MONOSPACE -> FontFamily.Monospace
+            DocumentFont.INTER -> FontFamily(Font(R.font.inter))
+            DocumentFont.POPPINS -> FontFamily(Font(R.font.poppins))
+            DocumentFont.MONTSERRAT -> FontFamily(Font(R.font.montserrat))
+            DocumentFont.OSWALD -> FontFamily(Font(R.font.oswald))
             DocumentFont.PLAYFAIR_DISPLAY -> FontFamily(Font(R.font.playfair_display))
             DocumentFont.MERRIWEATHER -> FontFamily(Font(R.font.merriweather))
-            DocumentFont.MONTSERRAT -> FontFamily(Font(R.font.montserrat))
             DocumentFont.LORA -> FontFamily(Font(R.font.lora))
             DocumentFont.ROBOTO_MONO -> FontFamily(Font(R.font.roboto_mono))
             DocumentFont.CAVEAT -> FontFamily(Font(R.font.caveat))
+            DocumentFont.PACIFICO -> FontFamily(Font(R.font.pacifico))
             DocumentFont.CUSTOM -> {
                 if (!customFontName.isNullOrBlank()) {
                     val dir = getFontsDir(context)
@@ -131,6 +135,27 @@ object CustomFontManager {
             DocumentFont.SYSTEM_SANS -> Typeface.create(Typeface.DEFAULT, style)
             DocumentFont.SERIF -> Typeface.create(Typeface.SERIF, style)
             DocumentFont.MONOSPACE -> Typeface.create(Typeface.MONOSPACE, style)
+            DocumentFont.INTER -> {
+                try {
+                    ResourcesCompat.getFont(context, R.font.inter) ?: Typeface.create(Typeface.SANS_SERIF, style)
+                } catch (_: Exception) {
+                    Typeface.create(Typeface.SANS_SERIF, style)
+                }
+            }
+            DocumentFont.POPPINS -> {
+                try {
+                    ResourcesCompat.getFont(context, R.font.poppins) ?: Typeface.create(Typeface.SANS_SERIF, style)
+                } catch (_: Exception) {
+                    Typeface.create(Typeface.SANS_SERIF, style)
+                }
+            }
+            DocumentFont.OSWALD -> {
+                try {
+                    ResourcesCompat.getFont(context, R.font.oswald) ?: Typeface.create(Typeface.SANS_SERIF, style)
+                } catch (_: Exception) {
+                    Typeface.create(Typeface.SANS_SERIF, style)
+                }
+            }
             DocumentFont.PLAYFAIR_DISPLAY -> {
                 try {
                     ResourcesCompat.getFont(context, R.font.playfair_display) ?: Typeface.create(Typeface.SERIF, style)
@@ -169,6 +194,13 @@ object CustomFontManager {
             DocumentFont.CAVEAT -> {
                 try {
                     ResourcesCompat.getFont(context, R.font.caveat) ?: Typeface.create(Typeface.DEFAULT, style)
+                } catch (_: Exception) {
+                    Typeface.create(Typeface.DEFAULT, style)
+                }
+            }
+            DocumentFont.PACIFICO -> {
+                try {
+                    ResourcesCompat.getFont(context, R.font.pacifico) ?: Typeface.create(Typeface.DEFAULT, style)
                 } catch (_: Exception) {
                     Typeface.create(Typeface.DEFAULT, style)
                 }

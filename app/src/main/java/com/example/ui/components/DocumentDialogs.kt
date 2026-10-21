@@ -491,8 +491,13 @@ fun ExportSheetDialog(
     document: TypableDocument,
     onExportDocx: () -> Unit,
     onExportPdf: () -> Unit,
+    onExportOdt: () -> Unit,
+    onExportRtf: () -> Unit,
+    onExportEpub: () -> Unit,
     onExportMarkdown: () -> Unit,
     onExportHtml: () -> Unit,
+    onExportCsv: () -> Unit,
+    onExportJson: () -> Unit,
     onExportTxt: () -> Unit,
     onPrint: () -> Unit,
     onDismiss: () -> Unit
@@ -503,9 +508,13 @@ fun ExportSheetDialog(
         title = { Text("Export & Share Document", fontWeight = FontWeight.Bold) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Text("DOCUMENT & WORD PROCESSOR FORMATS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 ExportOptionCard(
                     icon = Icons.Default.Description,
                     title = "Microsoft Word (.docx)",
@@ -521,6 +530,36 @@ fun ExportSheetDialog(
                     badge = "PDF",
                     onClick = {
                         onExportPdf()
+                        onDismiss()
+                    }
+                )
+                ExportOptionCard(
+                    icon = Icons.Default.Article,
+                    title = "OpenDocument Text (.odt)",
+                    badge = "ODT",
+                    onClick = {
+                        onExportOdt()
+                        onDismiss()
+                    }
+                )
+                ExportOptionCard(
+                    icon = Icons.Default.TextFields,
+                    title = "Rich Text Format (.rtf)",
+                    badge = "RTF",
+                    onClick = {
+                        onExportRtf()
+                        onDismiss()
+                    }
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Text("DIGITAL & PUBLISHING FORMATS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                ExportOptionCard(
+                    icon = Icons.Default.MenuBook,
+                    title = "EPUB 3 eBook (.epub)",
+                    badge = "EPUB",
+                    onClick = {
+                        onExportEpub()
                         onDismiss()
                     }
                 )
@@ -543,7 +582,25 @@ fun ExportSheetDialog(
                     }
                 )
                 ExportOptionCard(
-                    icon = Icons.Default.TextFields,
+                    icon = Icons.Default.TableChart,
+                    title = "Tabular Spreadsheet (.csv)",
+                    badge = "CSV",
+                    onClick = {
+                        onExportCsv()
+                        onDismiss()
+                    }
+                )
+                ExportOptionCard(
+                    icon = Icons.Default.DataObject,
+                    title = "Typable Lossless Archive (.json)",
+                    badge = "JSON",
+                    onClick = {
+                        onExportJson()
+                        onDismiss()
+                    }
+                )
+                ExportOptionCard(
+                    icon = Icons.Default.Notes,
                     title = "Plain Text (.txt)",
                     badge = "TXT",
                     onClick = {

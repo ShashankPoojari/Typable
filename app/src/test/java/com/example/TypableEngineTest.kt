@@ -1,10 +1,7 @@
 package com.example
 
 import com.example.engine.DocumentEngine
-import com.example.formats.DocxFormat
-import com.example.formats.HtmlFormat
-import com.example.formats.MarkdownFormat
-import com.example.formats.PlainTextFormat
+import com.example.formats.*
 import com.example.model.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -277,5 +274,115 @@ class TypableEngineTest {
         assertEquals(1, idx3)
         assertEquals(2, engine3.currentDocument.blocks.size)
         assertTrue(engine3.currentDocument.blocks[1] is DocumentBlock.Paragraph)
+    }
+
+    @Test
+    fun testRtfExportAndImportRoundTrip() {
+        val original = TypableDocument(
+            title = "RTF Test",
+            blocks = listOf(
+                DocumentBlock.Paragraph(
+                    runs = listOf(
+                        TextRun("Bold Introduction", isBold = true),
+                        TextRun(" followed by normal text.")
+                    ),
+                    style = BlockStyle.HEADING_1
+                )
+            )
+        )
+        val out = ByteArrayOutputStream()
+        RtfFormat.exportToRtf(original, out)
+        val rtfBytes = out.toByteArray()
+        assertTrue(rtfBytes.isNotEmpty())
+        val rtfString = String(rtfBytes, StandardCharsets.UTF_8)
+        assertTrue(rtfString.contains("{\\rtf1"))
+
+        val imported = RtfFormat.importFromRtf(ByteArrayInputStream(rtfBytes))
+        assertTrue(imported.blocks.isNotEmpty())
+        assertTrue(imported.blocks.any { (it as? DocumentBlock.Paragraph)?.plainText?.contains("Bold Introduction") == true })
+    }
+
+    @Test
+    fun testOdtExportAndImportRoundTrip() {
+        val original = TypableDocument(
+            title = "ODT Test Document",
+            blocks = listOf(
+                DocumentBlock.Paragraph(
+                    runs = listOf(TextRun("OpenDocument Text paragraph content.")),
+                    style = BlockStyle.NORMAL
+                )
+            )
+        )
+        val out = ByteArrayOutputStream()
+        OdtFormat.exportToOdt(original, out)
+        val odtBytes = out.toByteArray()
+        assertTrue(odtBytes.isNotEmpty())
+
+        val imported = OdtFormat.importFromOdt(ByteArrayInputStream(odtBytes))
+        assertTrue(imported.blocks.isNotEmpty())
+        assertTrue(imported.blocks.any { (it as? DocumentBlock.Paragraph)?.plainText?.contains("OpenDocument Text") == true })
+    }
+
+    @Test
+    fun testEpubExportAndImportRoundTrip() {
+        val original = TypableDocument(
+            title = "EPUB eBook Title",
+            blocks = listOf(
+                DocumentBlock.Paragraph(
+                    runs = listOf(TextRun("Chapter 1: The Beginning")),
+                    style = BlockStyle.HEADING_1
+                ),
+                DocumentBlock.Paragraph(
+                    runs = listOf(TextRun("Once upon a time in a digital world..."))
+                )
+            )
+        )
+        val out = ByteArrayOutputStream()
+        EpubFormat.exportToEpub(original, out)
+        val epubBytes = out.toByteArray()
+        assertTrue(epubBytes.isNotEmpty())
+
+        val imported = EpubFormat.importFromEpub(ByteArrayInputStream(epubBytes))
+        assertTrue(imported.blocks.isNotEmpty())
+    }
+
+    @Test
+    fun testCsvExportAndImportRoundTrip() {
+        val original = TypableDocument(
+            title = "Spreadsheet Test",
+            blocks = listOf(
+                DocumentBlock.Table(
+                    rows = listOf(
+                        TableRow(
+                            cells = listOf(
+                                TableCell(runs = listOf(TextRun("Product"))),
+                                TableCell(runs = listOf(TextRun("Price")))
+                            ),
+                            isHeader = true
+                        ),
+                        TableRow(
+                            cells = listOf(
+                                TableCell(runs = listOf(TextRun("Typable App"))),
+                                TableCell(runs = listOf(TextRun("Free")))
+                            )
+                        )
+                    ),
+                    columnWeights = listOf(0.5f, 0.5f)
+                )
+            )
+        )
+        val out = ByteArrayOutputStream()
+        CsvFormat.exportToCsv(original, out)
+        val csvBytes = out.toByteArray()
+        val csvStr = String(csvBytes, StandardCharsets.UTF_8)
+        assertTrue(csvStr.contains("\"Product\""))
+        assertTrue(csvStr.contains("\"Typable App\""))
+
+        val imported = CsvFormat.importFromCsv(ByteArrayInputStream(csvBytes))
+        assertEquals(2, imported.blocks.size)
+        assertTrue(imported.blocks[1] is DocumentBlock.Table)
+        val table = imported.blocks[1] as DocumentBlock.Table
+        assertEquals(2, table.rows.size)
+        assertEquals("Product", table.rows[0].cells[0].plainText)
     }
 }

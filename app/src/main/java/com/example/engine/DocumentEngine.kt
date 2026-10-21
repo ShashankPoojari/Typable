@@ -619,6 +619,20 @@ class DocumentEngine(initialDocument: TypableDocument) {
         return insertPos
     }
 
+    fun insertBlocks(atIndex: Int, newBlocks: List<DocumentBlock>): Int {
+        if (newBlocks.isEmpty()) return atIndex
+        pushSnapshot()
+        val mutable = currentDocument.blocks.toMutableList()
+        val insertPos = (atIndex + 1).coerceIn(0, mutable.size)
+        mutable.addAll(insertPos, newBlocks)
+        currentDocument = currentDocument.copy(
+            blocks = mutable,
+            modifiedAt = System.currentTimeMillis(),
+            version = currentDocument.version + 1
+        )
+        return insertPos + newBlocks.size - 1
+    }
+
     fun deleteBlock(blockIndex: Int) {
         if (blockIndex !in currentDocument.blocks.indices) return
         if (currentDocument.blocks.size <= 1) return // Keep at least one block

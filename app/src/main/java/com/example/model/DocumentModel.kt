@@ -26,12 +26,16 @@ enum class DocumentFont(val displayName: String, val fontName: String) {
     SYSTEM_SANS("Sans-Serif", "sans-serif"),
     SERIF("Serif (Classic)", "serif"),
     MONOSPACE("Monospace (Code)", "monospace"),
+    INTER("Inter", "inter"),
+    POPPINS("Poppins", "poppins"),
+    MONTSERRAT("Montserrat", "montserrat"),
+    OSWALD("Oswald", "oswald"),
     PLAYFAIR_DISPLAY("Playfair Display", "playfair_display"),
     MERRIWEATHER("Merriweather", "merriweather"),
-    MONTSERRAT("Montserrat", "montserrat"),
     LORA("Lora", "lora"),
     ROBOTO_MONO("Roboto Mono", "roboto_mono"),
     CAVEAT("Caveat (Handwritten)", "caveat"),
+    PACIFICO("Pacifico (Cursive)", "pacifico"),
     CUSTOM("Custom Font", "custom")
 }
 

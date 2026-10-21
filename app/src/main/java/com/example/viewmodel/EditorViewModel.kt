@@ -538,6 +538,91 @@ class EditorViewModel(
         }
     }
 
+    fun exportToOdt(context: Context): Uri? {
+        val exportDir = File(context.cacheDir, "exports")
+        if (!exportDir.exists()) exportDir.mkdirs()
+        val file = File(exportDir, "${sanitizeFilename(engine.currentDocument.title)}.odt")
+        return try {
+            FileOutputStream(file).use { fos ->
+                OdtFormat.exportToOdt(engine.currentDocument, fos)
+            }
+            showStatus("ODT exported successfully")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showStatus("ODT export error: ${e.message}")
+            null
+        }
+    }
+
+    fun exportToRtf(context: Context): Uri? {
+        val exportDir = File(context.cacheDir, "exports")
+        if (!exportDir.exists()) exportDir.mkdirs()
+        val file = File(exportDir, "${sanitizeFilename(engine.currentDocument.title)}.rtf")
+        return try {
+            FileOutputStream(file).use { fos ->
+                RtfFormat.exportToRtf(engine.currentDocument, fos)
+            }
+            showStatus("RTF exported successfully")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showStatus("RTF export error: ${e.message}")
+            null
+        }
+    }
+
+    fun exportToEpub(context: Context): Uri? {
+        val exportDir = File(context.cacheDir, "exports")
+        if (!exportDir.exists()) exportDir.mkdirs()
+        val file = File(exportDir, "${sanitizeFilename(engine.currentDocument.title)}.epub")
+        return try {
+            FileOutputStream(file).use { fos ->
+                EpubFormat.exportToEpub(engine.currentDocument, fos)
+            }
+            showStatus("EPUB eBook exported successfully")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showStatus("EPUB export error: ${e.message}")
+            null
+        }
+    }
+
+    fun exportToJson(context: Context): Uri? {
+        val exportDir = File(context.cacheDir, "exports")
+        if (!exportDir.exists()) exportDir.mkdirs()
+        val file = File(exportDir, "${sanitizeFilename(engine.currentDocument.title)}.json")
+        return try {
+            FileOutputStream(file).use { fos ->
+                JsonBackupFormat.exportToJson(engine.currentDocument, fos, storage)
+            }
+            showStatus("JSON backup exported successfully")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showStatus("JSON export error: ${e.message}")
+            null
+        }
+    }
+
+    fun exportToCsv(context: Context): Uri? {
+        val exportDir = File(context.cacheDir, "exports")
+        if (!exportDir.exists()) exportDir.mkdirs()
+        val file = File(exportDir, "${sanitizeFilename(engine.currentDocument.title)}.csv")
+        return try {
+            FileOutputStream(file).use { fos ->
+                CsvFormat.exportToCsv(engine.currentDocument, fos)
+            }
+            showStatus("CSV spreadsheet exported successfully")
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showStatus("CSV export error: ${e.message}")
+            null
+        }
+    }
+
     fun print(context: Context) {
         PdfExporter.printDocument(context, engine.currentDocument)
     }
@@ -550,6 +635,65 @@ class EditorViewModel(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Share Document"))
+    }
+
+    fun importAndInsertFromFile(context: Context, uri: Uri, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: ""
+                val filename = getFileName(context, uri).lowercase()
+
+                val importedDoc: TypableDocument? = contentResolver.openInputStream(uri)?.use { stream ->
+                    when {
+                        filename.endsWith(".docx") || mimeType.contains("wordprocessingml") -> DocxFormat.importFromDocx(stream)
+                        filename.endsWith(".odt") || mimeType.contains("opendocument.text") -> OdtFormat.importFromOdt(stream)
+                        filename.endsWith(".rtf") || mimeType.contains("rtf") -> RtfFormat.importFromRtf(stream)
+                        filename.endsWith(".epub") || mimeType.contains("epub") -> EpubFormat.importFromEpub(stream)
+                        filename.endsWith(".json") || filename.endsWith(".typable") || mimeType.contains("json") -> JsonBackupFormat.importFromJson(stream, storage)
+                        filename.endsWith(".csv") || filename.endsWith(".tsv") || mimeType.contains("csv") -> CsvFormat.importFromCsv(stream)
+                        filename.endsWith(".md") || mimeType.contains("markdown") -> MarkdownFormat.importFromMarkdown(stream)
+                        filename.endsWith(".html") || filename.endsWith(".htm") || mimeType.contains("html") -> HtmlFormat.importFromHtml(stream)
+                        else -> PlainTextFormat.importFromText(stream)
+                    }
+                }
+
+                if (importedDoc != null && importedDoc.blocks.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        val newActive = engine.insertBlocks(_uiState.value.activeBlockIndex, importedDoc.blocks)
+                        syncStateAfterEdit()
+                        _uiState.value = _uiState.value.copy(activeBlockIndex = newActive)
+                        showStatus("Imported ${importedDoc.blocks.size} blocks from '$filename'")
+                        onComplete(true)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        showStatus("No readable content in file")
+                        onComplete(false)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    showStatus("Import error: ${e.message}")
+                    onComplete(false)
+                }
+            }
+        }
+    }
+
+    private fun getFileName(context: Context, uri: Uri): String {
+        var name = "document.txt"
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) {
+                    name = it.getString(nameIndex)
+                }
+            }
+        }
+        return name
     }
 
     private fun sanitizeFilename(title: String): String {

@@ -1,6 +1,12 @@
 package com.example.ui.screens
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.model.DocumentFont
+import com.example.storage.CustomFontManager
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,6 +82,41 @@ fun EditorScreen(
         if (lum < 0.5f) Color(0xFFF8FAFC) else Color(0xFF0F172A)
     }
 
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val fontPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val result = CustomFontManager.importFontFromUri(context, uri)
+            result.onSuccess { fontName ->
+                viewModel.applyFontFamily(DocumentFont.CUSTOM, fontName)
+                scope.launch {
+                    snackbarHostState.showSnackbar("Font '$fontName' imported and applied successfully!")
+                }
+            }.onFailure { err ->
+                scope.launch {
+                    snackbarHostState.showSnackbar("Failed to import font: ${err.message ?: "Invalid TTF/OTF font file"}")
+                }
+            }
+        }
+    }
+
+    val importDocLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.importAndInsertFromFile(context, uri) { success ->
+                if (success) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Document content imported successfully!")
+                    }
+                }
+            }
+        }
+    }
+
     // Intercept back navigation to guarantee auto-saving
     BackHandler {
         viewModel.explicitSave()
@@ -83,6 +124,7 @@ fun EditorScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (!uiState.isFocusMode) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -213,6 +255,9 @@ fun EditorScreen(
                         onIndent = { viewModel.indent() },
                         onOutdent = { viewModel.outdent() },
                         onApplyFontFamily = { font, customName -> viewModel.applyFontFamily(font, customName) },
+                        onImportFontClick = {
+                            fontPickerLauncher.launch(arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-opentype", "application/octet-stream", "*/*"))
+                        },
                         onApplyFontSizeDelta = { viewModel.applyFontSizeDelta(it) },
                         onApplyColor = { viewModel.applyColor(it) },
                         onApplyHighlight = { viewModel.applyHighlight(it) },
@@ -549,6 +594,18 @@ fun EditorScreen(
                 val uri = viewModel.exportToPdf(context)
                 uri?.let { viewModel.shareExportedFile(context, it, "application/pdf") }
             },
+            onExportOdt = {
+                val uri = viewModel.exportToOdt(context)
+                uri?.let { viewModel.shareExportedFile(context, it, "application/vnd.oasis.opendocument.text") }
+            },
+            onExportRtf = {
+                val uri = viewModel.exportToRtf(context)
+                uri?.let { viewModel.shareExportedFile(context, it, "application/rtf") }
+            },
+            onExportEpub = {
+                val uri = viewModel.exportToEpub(context)
+                uri?.let { viewModel.shareExportedFile(context, it, "application/epub+zip") }
+            },
             onExportMarkdown = {
                 val uri = viewModel.exportToMarkdown(context)
                 uri?.let { viewModel.shareExportedFile(context, it, "text/markdown") }
@@ -556,6 +613,14 @@ fun EditorScreen(
             onExportHtml = {
                 val uri = viewModel.exportToHtml(context)
                 uri?.let { viewModel.shareExportedFile(context, it, "text/html") }
+            },
+            onExportCsv = {
+                val uri = viewModel.exportToCsv(context)
+                uri?.let { viewModel.shareExportedFile(context, it, "text/csv") }
+            },
+            onExportJson = {
+                val uri = viewModel.exportToJson(context)
+                uri?.let { viewModel.shareExportedFile(context, it, "application/json") }
             },
             onExportTxt = {
                 val uri = viewModel.exportToTxt(context)
@@ -655,6 +720,52 @@ fun EditorScreen(
                     .navigationBarsPadding()
             ) {
                 Text("Document Options", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+
+                Surface(
+                    onClick = {
+                        overflowMenuExpanded = false
+                        showExportSheet = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.FileDownload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Export Document (DOCX, PDF, ODT, RTF, EPUB...)", fontSize = 14.sp)
+                    }
+                }
+
+                Surface(
+                    onClick = {
+                        overflowMenuExpanded = false
+                        importDocLauncher.launch(
+                            arrayOf(
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.oasis.opendocument.text",
+                                "application/rtf",
+                                "text/rtf",
+                                "application/epub+zip",
+                                "application/json",
+                                "text/csv",
+                                "text/plain",
+                                "text/markdown",
+                                "text/html",
+                                "*/*"
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Transparent
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Import & Insert from External Document...", fontSize = 14.sp)
+                    }
+                }
 
                 Surface(
                     onClick = {
