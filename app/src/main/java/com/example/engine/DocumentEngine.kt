@@ -103,12 +103,21 @@ class DocumentEngine(initialDocument: TypableDocument) {
 
     // --- Block Updates ---
 
+    private var lastTextEditTime: Long = 0L
+    private var lastEditedBlockIndex: Int = -1
+
     fun updateParagraphText(blockIndex: Int, newText: String) {
         if (blockIndex !in currentDocument.blocks.indices) return
         val block = currentDocument.blocks[blockIndex] as? DocumentBlock.Paragraph ?: return
         if (block.plainText == newText) return
 
-        pushSnapshot()
+        val now = System.currentTimeMillis()
+        if (lastEditedBlockIndex != blockIndex || now - lastTextEditTime > 800L) {
+            pushSnapshot()
+        }
+        lastTextEditTime = now
+        lastEditedBlockIndex = blockIndex
+
         val baseRun = block.runs.firstOrNull() ?: TextRun("")
         val updatedRuns = listOf(baseRun.copy(text = newText))
 
@@ -116,21 +125,47 @@ class DocumentEngine(initialDocument: TypableDocument) {
         newBlocks[blockIndex] = block.copy(runs = updatedRuns)
         currentDocument = currentDocument.copy(
             blocks = newBlocks,
-            modifiedAt = System.currentTimeMillis(),
+            modifiedAt = now,
             version = currentDocument.version + 1
         )
     }
 
-    fun splitParagraph(blockIndex: Int, cursorOffset: Int): Int {
+    fun splitParagraph(
+        blockIndex: Int,
+        cursorOffset: Int,
+        explicitBeforeText: String? = null,
+        explicitAfterText: String? = null
+    ): Int {
         if (blockIndex !in currentDocument.blocks.indices) return blockIndex
         val block = currentDocument.blocks[blockIndex] as? DocumentBlock.Paragraph ?: return blockIndex
 
-        pushSnapshot()
-        val fullText = block.plainText
-        val safeOffset = cursorOffset.coerceIn(0, fullText.length)
+        val fullText = explicitBeforeText?.let { it + (explicitAfterText ?: "") } ?: block.plainText
 
-        val beforeText = fullText.substring(0, safeOffset)
-        val afterText = fullText.substring(safeOffset)
+        // Check if pressing Enter on an empty list bullet/numbered item -> exit list mode
+        if (block.listType != ListType.NONE && fullText.isBlank()) {
+            pushSnapshot()
+            lastEditedBlockIndex = -1
+            val newBlocks = currentDocument.blocks.toMutableList()
+            newBlocks[blockIndex] = block.copy(listType = ListType.NONE, listIndex = 1)
+            currentDocument = currentDocument.copy(
+                blocks = newBlocks,
+                modifiedAt = System.currentTimeMillis(),
+                version = currentDocument.version + 1
+            )
+            return blockIndex
+        }
+
+        pushSnapshot()
+        lastEditedBlockIndex = -1
+
+        val beforeText = explicitBeforeText ?: run {
+            val safeOffset = cursorOffset.coerceIn(0, fullText.length)
+            fullText.substring(0, safeOffset)
+        }
+        val afterText = explicitAfterText ?: run {
+            val safeOffset = cursorOffset.coerceIn(0, fullText.length)
+            fullText.substring(safeOffset)
+        }
 
         val baseRun = block.runs.firstOrNull() ?: TextRun("")
 
@@ -174,16 +209,90 @@ class DocumentEngine(initialDocument: TypableDocument) {
     }
 
     fun mergeWithPrevious(blockIndex: Int): Int {
-        if (blockIndex <= 0 || blockIndex !in currentDocument.blocks.indices) return blockIndex
+        if (blockIndex !in currentDocument.blocks.indices) return blockIndex
         val currentBlock = currentDocument.blocks[blockIndex]
+
+        lastEditedBlockIndex = -1
+
+        if (currentBlock is DocumentBlock.Paragraph) {
+            // 1. If indented, pressing backspace at start reduces indent (outdent)
+            if (currentBlock.indentationLevel > 0) {
+                pushSnapshot()
+                val newBlocks = currentDocument.blocks.toMutableList()
+                newBlocks[blockIndex] = currentBlock.copy(indentationLevel = currentBlock.indentationLevel - 1)
+                currentDocument = currentDocument.copy(
+                    blocks = newBlocks,
+                    modifiedAt = System.currentTimeMillis(),
+                    version = currentDocument.version + 1
+                )
+                return blockIndex
+            }
+
+            // 2. If list item with empty text, backspace turns off list formatting
+            if (currentBlock.listType != ListType.NONE && currentBlock.plainText.isEmpty()) {
+                pushSnapshot()
+                val newBlocks = currentDocument.blocks.toMutableList()
+                newBlocks[blockIndex] = currentBlock.copy(listType = ListType.NONE, listIndex = 1)
+                currentDocument = currentDocument.copy(
+                    blocks = newBlocks,
+                    modifiedAt = System.currentTimeMillis(),
+                    version = currentDocument.version + 1
+                )
+                return blockIndex
+            }
+
+            // 3. If heading/title with empty text, backspace resets to Normal paragraph
+            if (currentBlock.style != BlockStyle.NORMAL && currentBlock.plainText.isEmpty()) {
+                pushSnapshot()
+                val newBlocks = currentDocument.blocks.toMutableList()
+                newBlocks[blockIndex] = currentBlock.copy(style = BlockStyle.NORMAL)
+                currentDocument = currentDocument.copy(
+                    blocks = newBlocks,
+                    modifiedAt = System.currentTimeMillis(),
+                    version = currentDocument.version + 1
+                )
+                return blockIndex
+            }
+        }
+
+        // 4. Cannot merge if first block
+        if (blockIndex <= 0) return blockIndex
+
         val prevBlock = currentDocument.blocks[blockIndex - 1]
 
+        // 5. If previous block is divider or page break, remove that previous block
+        if (prevBlock is DocumentBlock.Divider || prevBlock is DocumentBlock.PageBreak) {
+            pushSnapshot()
+            val newBlocks = currentDocument.blocks.toMutableList()
+            newBlocks.removeAt(blockIndex - 1)
+            currentDocument = currentDocument.copy(
+                blocks = newBlocks,
+                modifiedAt = System.currentTimeMillis(),
+                version = currentDocument.version + 1
+            )
+            return (blockIndex - 1).coerceAtLeast(0)
+        }
+
+        // 6. If current block is an empty paragraph, simply delete it
+        if (currentBlock is DocumentBlock.Paragraph && currentBlock.plainText.isEmpty() && currentDocument.blocks.size > 1) {
+            pushSnapshot()
+            val newBlocks = currentDocument.blocks.toMutableList()
+            newBlocks.removeAt(blockIndex)
+            currentDocument = currentDocument.copy(
+                blocks = newBlocks,
+                modifiedAt = System.currentTimeMillis(),
+                version = currentDocument.version + 1
+            )
+            return (blockIndex - 1).coerceAtLeast(0)
+        }
+
+        // 7. If both are paragraphs, concatenate text
         if (currentBlock is DocumentBlock.Paragraph && prevBlock is DocumentBlock.Paragraph) {
             pushSnapshot()
-            val mergedRuns = prevBlock.runs.toMutableList()
-            if (currentBlock.runs.isNotEmpty()) {
-                mergedRuns.addAll(currentBlock.runs)
-            }
+            val basePrevRun = prevBlock.runs.firstOrNull() ?: TextRun("")
+            val mergedText = prevBlock.plainText + currentBlock.plainText
+            val mergedRuns = listOf(basePrevRun.copy(text = mergedText))
+
             val newBlocks = currentDocument.blocks.toMutableList()
             newBlocks[blockIndex - 1] = prevBlock.copy(runs = mergedRuns)
             newBlocks.removeAt(blockIndex)
@@ -232,8 +341,8 @@ class DocumentEngine(initialDocument: TypableDocument) {
         transformBlockRuns(blockIndex) { it.copy(highlightColorHex = highlightHex) }
     }
 
-    fun applyFontFamily(blockIndex: Int, font: DocumentFont) {
-        transformBlockRuns(blockIndex) { it.copy(fontFamily = font) }
+    fun applyFontFamily(blockIndex: Int, font: DocumentFont, customFontName: String? = null) {
+        transformBlockRuns(blockIndex) { it.copy(fontFamily = font, customFontName = customFontName) }
     }
 
     fun applyFontSize(blockIndex: Int, deltaSp: Float) {

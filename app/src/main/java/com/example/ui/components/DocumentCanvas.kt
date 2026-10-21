@@ -20,10 +20,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -31,12 +35,36 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.*
+import com.example.storage.CustomFontManager
+
+/**
+ * High-contrast color resolver:
+ * Ensures custom or default font color is always easily visible against the paper background,
+ * eliminating invisible text under dark theme, sepia, or custom paper tints.
+ */
+fun resolveSafeTextColor(customHex: String?, paperHex: String, defaultInk: Color): Color {
+    if (customHex.isNullOrBlank()) return defaultInk
+    return try {
+        val color = Color(android.graphics.Color.parseColor(customHex))
+        val paper = Color(android.graphics.Color.parseColor(paperHex))
+        val lumText = 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
+        val lumPaper = 0.2126f * paper.red + 0.7152f * paper.green + 0.0722f * paper.blue
+        val lighter = maxOf(lumText, lumPaper)
+        val darker = minOf(lumText, lumPaper)
+        val ratio = (lighter + 0.05f) / (darker + 0.05f)
+        if (ratio < 1.75f) defaultInk else color
+    } catch (_: Exception) {
+        defaultInk
+    }
+}
 
 @Composable
 fun DocumentCanvas(
@@ -45,9 +73,12 @@ fun DocumentCanvas(
     isPrintLayout: Boolean = true,
     showRuler: Boolean = true,
     zoomScale: Float = 1.0f,
+    requestedCursorOffset: Int? = null,
+    onConsumeRequestedCursor: () -> Unit = {},
     onSelectBlock: (Int) -> Unit,
     onUpdateText: (Int, String) -> Unit,
-    onSplitParagraph: (Int, Int) -> Unit,
+    onSplitParagraph: (Int, Int) -> Unit = { _, _ -> },
+    onSplitParagraphWithText: (Int, Int, String, String) -> Unit = { idx, offset, _, _ -> onSplitParagraph(idx, offset) },
     onMergeWithPrevious: (Int) -> Unit,
     onDeleteBlock: (Int) -> Unit,
     onUpdateTableCell: (Int, Int, Int, String) -> Unit,
@@ -60,10 +91,37 @@ fun DocumentCanvas(
     val listState = rememberLazyListState()
 
     // Determine paper background color
+    val paperColorHex = document.pageSettings.backgroundColorHex
     val paperColor = try {
-        Color(android.graphics.Color.parseColor(document.pageSettings.backgroundColorHex))
+        Color(android.graphics.Color.parseColor(paperColorHex))
     } catch (e: Exception) {
-        MaterialTheme.colorScheme.surface
+        Color.White
+    }
+
+    // Compute high-contrast default ink color and placeholder color based on paper background
+    val defaultInkColor = remember(paperColorHex) {
+        val r = paperColor.red
+        val g = paperColor.green
+        val b = paperColor.blue
+        val luminance = 0.299f * r + 0.587f * g + 0.114f * b
+        if (luminance < 0.5f) Color(0xFFF8FAFC) else Color(0xFF0F172A)
+    }
+
+    val placeholderColor = remember(paperColorHex) {
+        val r = paperColor.red
+        val g = paperColor.green
+        val b = paperColor.blue
+        val luminance = 0.299f * r + 0.587f * g + 0.114f * b
+        if (luminance < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
+    }
+
+    // Smooth auto-scroll when active block changes
+    LaunchedEffect(activeBlockIndex) {
+        if (activeBlockIndex in document.blocks.indices) {
+            try {
+                listState.animateScrollToItem(activeBlockIndex)
+            } catch (_: Exception) {}
+        }
     }
 
     // Margins in dp
@@ -141,19 +199,22 @@ fun DocumentCanvas(
                                     text = document.pageSettings.headerText,
                                     style = TextStyle(
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        color = defaultInkColor.copy(alpha = 0.6f),
                                         textAlign = TextAlign.Center
                                     ),
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    color = defaultInkColor.copy(alpha = 0.2f),
                                     thickness = 0.5.dp,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
                         }
                     }
+
+                    val isDocumentEntirelyEmpty = document.blocks.size <= 1 &&
+                            document.blocks.all { it is DocumentBlock.Paragraph && it.plainText.isEmpty() }
 
                     // Document Blocks
                     itemsIndexed(
@@ -164,12 +225,22 @@ fun DocumentCanvas(
 
                         when (block) {
                             is DocumentBlock.Paragraph -> {
+                                val showPlaceholder = (index == 0 && isDocumentEntirelyEmpty) ||
+                                        (isActive && block.style.isHeading && block.plainText.isEmpty())
                                 ParagraphBlockItem(
                                     paragraph = block,
                                     isActive = isActive,
+                                    paperColorHex = paperColorHex,
+                                    defaultInkColor = defaultInkColor,
+                                    placeholderColor = placeholderColor,
+                                    showPlaceholder = showPlaceholder,
+                                    requestedCursorOffset = if (isActive) requestedCursorOffset else null,
+                                    onConsumeRequestedCursor = onConsumeRequestedCursor,
                                     onFocused = { onSelectBlock(index) },
                                     onTextChanged = { newText -> onUpdateText(index, newText) },
-                                    onEnterPressed = { cursorOffset -> onSplitParagraph(index, cursorOffset) },
+                                    onEnterPressedWithText = { before, after ->
+                                        onSplitParagraphWithText(index, before.length, before, after)
+                                    },
                                     onBackspaceAtStart = { onMergeWithPrevious(index) }
                                 )
                             }
@@ -177,6 +248,7 @@ fun DocumentCanvas(
                                 TableBlockItem(
                                     table = block,
                                     isActive = isActive,
+                                    defaultInkColor = defaultInkColor,
                                     onFocused = { onSelectBlock(index) },
                                     onCellChanged = { rowIdx, colIdx, text ->
                                         onUpdateTableCell(index, rowIdx, colIdx, text)
@@ -211,7 +283,7 @@ fun DocumentCanvas(
                         item {
                             Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp)) {
                                 HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    color = defaultInkColor.copy(alpha = 0.2f),
                                     thickness = 0.5.dp,
                                     modifier = Modifier.padding(bottom = 6.dp)
                                 )
@@ -223,7 +295,7 @@ fun DocumentCanvas(
                                         text = document.pageSettings.footerText,
                                         style = TextStyle(
                                             fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                            color = defaultInkColor.copy(alpha = 0.6f)
                                         )
                                     )
                                     if (document.pageSettings.showPageNumbers) {
@@ -231,7 +303,7 @@ fun DocumentCanvas(
                                             text = "Page 1 of ${document.computeStats().pageCount}",
                                             style = TextStyle(
                                                 fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                color = defaultInkColor.copy(alpha = 0.6f)
                                             )
                                         )
                                     }
@@ -242,7 +314,7 @@ fun DocumentCanvas(
 
                     // Bottom padding for toolbar overlay
                     item {
-                        Spacer(modifier = Modifier.height(120.dp))
+                        Spacer(modifier = Modifier.height(160.dp))
                     }
                 }
             }
@@ -260,9 +332,9 @@ fun WordProcessorRuler(
     marginPadding: androidx.compose.ui.unit.Dp = 24.dp
 ) {
     val rulerBg = MaterialTheme.colorScheme.surface
-    val tickColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val tickColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     val markerColor = MaterialTheme.colorScheme.primary
-    val textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val textColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
 
     Surface(
         modifier = modifier
@@ -366,13 +438,55 @@ fun WordProcessorRuler(
 fun ParagraphBlockItem(
     paragraph: DocumentBlock.Paragraph,
     isActive: Boolean,
+    paperColorHex: String,
+    defaultInkColor: Color,
+    placeholderColor: Color,
+    showPlaceholder: Boolean = false,
+    requestedCursorOffset: Int? = null,
+    onConsumeRequestedCursor: () -> Unit = {},
     onFocused: () -> Unit,
     onTextChanged: (String) -> Unit,
-    onEnterPressed: (Int) -> Unit,
+    onEnterPressedWithText: (String, String) -> Unit,
     onBackspaceAtStart: () -> Unit
 ) {
-    var textFieldValue by remember(paragraph.plainText) {
-        mutableStateOf(TextFieldValue(text = paragraph.plainText, selection = TextRange(paragraph.plainText.length)))
+    val focusRequester = remember { FocusRequester() }
+
+    // Preserve local cursor and text; only sync from model when external update occurs
+    var textFieldValue by remember(paragraph.id) {
+        val initialOffset = requestedCursorOffset?.coerceIn(0, paragraph.plainText.length) ?: 0
+        mutableStateOf(TextFieldValue(text = paragraph.plainText, selection = TextRange(initialOffset)))
+    }
+
+    var lastSentText by remember(paragraph.id) { mutableStateOf(paragraph.plainText) }
+
+    // Handle cursor jump requests (e.g. from Enter split or Backspace merge)
+    LaunchedEffect(isActive, requestedCursorOffset) {
+        if (isActive && requestedCursorOffset != null) {
+            val safePos = requestedCursorOffset.coerceIn(0, textFieldValue.text.length)
+            textFieldValue = textFieldValue.copy(selection = TextRange(safePos))
+            onConsumeRequestedCursor()
+        }
+    }
+
+    // External model updates (Undo, Redo, Find & Replace, external import)
+    LaunchedEffect(paragraph.plainText) {
+        if (paragraph.plainText != lastSentText) {
+            lastSentText = paragraph.plainText
+            val safeStart = textFieldValue.selection.start.coerceIn(0, paragraph.plainText.length)
+            val safeEnd = textFieldValue.selection.end.coerceIn(0, paragraph.plainText.length)
+            textFieldValue = TextFieldValue(
+                text = paragraph.plainText,
+                selection = TextRange(safeStart, safeEnd)
+            )
+        }
+    }
+
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            try {
+                focusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
     }
 
     val textAlign = when (paragraph.alignment) {
@@ -387,15 +501,19 @@ fun ParagraphBlockItem(
     val styleFontSize = paragraph.style.defaultFontSizeSp.sp
 
     val baseRun = paragraph.runs.firstOrNull() ?: TextRun("")
-    val fontFamily = when (baseRun.fontFamily) {
-        DocumentFont.SERIF -> FontFamily.Serif
-        DocumentFont.MONOSPACE -> FontFamily.Monospace
-        else -> FontFamily.Default
-    }
+    val context = LocalContext.current
+    val fontFamily = CustomFontManager.getComposeFontFamily(
+        context = context,
+        font = baseRun.fontFamily,
+        customFontName = baseRun.customFontName
+    )
 
-    val textColor = baseRun.textColorHex?.let {
-        try { Color(android.graphics.Color.parseColor(it)) } catch (e: Exception) { MaterialTheme.colorScheme.onSurface }
-    } ?: MaterialTheme.colorScheme.onSurface
+    // Guaranteed high-contrast font color against paper background
+    val textColor = resolveSafeTextColor(
+        customHex = baseRun.textColorHex,
+        paperHex = paperColorHex,
+        defaultInk = defaultInkColor
+    )
 
     val highlightColor = baseRun.highlightColorHex?.let {
         try { Color(android.graphics.Color.parseColor(it)) } catch (e: Exception) { Color.Transparent }
@@ -409,6 +527,7 @@ fun ParagraphBlockItem(
     }
 
     val indentPadding = (paragraph.indentationLevel * 18).dp
+    val cursorColor = if (defaultInkColor.red > 0.5f) Color(0xFF38BDF8) else Color(0xFF0284C7)
 
     Row(
         modifier = Modifier
@@ -451,29 +570,42 @@ fun ParagraphBlockItem(
         BasicTextField(
             value = textFieldValue,
             onValueChange = { newValue ->
-                val oldText = textFieldValue.text
                 val newText = newValue.text
 
                 // Detect Enter key pressed
                 if (newText.contains("\n")) {
                     val enterPos = newText.indexOf('\n')
-                    val cleanText = newText.replace("\n", "")
-                    onTextChanged(cleanText)
-                    onEnterPressed(enterPos)
+                    val beforeEnter = newText.substring(0, enterPos)
+                    val afterEnter = if (enterPos + 1 <= newText.length) newText.substring(enterPos + 1) else ""
+                    textFieldValue = TextFieldValue(text = beforeEnter, selection = TextRange(beforeEnter.length))
+                    lastSentText = beforeEnter
+                    onEnterPressedWithText(beforeEnter, afterEnter)
                     return@BasicTextField
                 }
 
                 // Detect backspace at beginning of block
-                if (oldText.isEmpty() && newText.isEmpty()) {
+                if (textFieldValue.text.isEmpty() && newText.isEmpty()) {
                     onBackspaceAtStart()
                     return@BasicTextField
                 }
 
                 textFieldValue = newValue
-                onTextChanged(newValue.text)
+                if (newValue.text != lastSentText) {
+                    lastSentText = newValue.text
+                    onTextChanged(newValue.text)
+                }
             },
             modifier = Modifier
                 .weight(1f)
+                .focusRequester(focusRequester)
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Backspace) {
+                        if (textFieldValue.selection.collapsed && textFieldValue.selection.start == 0) {
+                            onBackspaceAtStart()
+                            true
+                        } else false
+                    } else false
+                }
                 .onFocusChanged { state ->
                     if (state.isFocused) onFocused()
                 }
@@ -489,27 +621,33 @@ fun ParagraphBlockItem(
                 lineHeight = (styleFontSize.value * paragraph.lineSpacing * 1.35f).sp,
                 background = highlightColor
             ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            cursorBrush = SolidColor(cursorColor),
+            singleLine = false,
+            maxLines = Int.MAX_VALUE,
             keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                autoCorrectEnabled = true,
+                keyboardType = KeyboardType.Text,
                 imeAction = ImeAction.Default
             ),
             decorationBox = { innerTextField ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = (styleFontSize.value * 1.35f).dp)
                         .then(
                             if (paragraph.style == BlockStyle.CODE) {
                                 Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .background(defaultInkColor.copy(alpha = 0.06f), RoundedCornerShape(4.dp))
                                     .padding(8.dp)
                             } else Modifier
                         )
                 ) {
-                    if (textFieldValue.text.isEmpty() && !isActive) {
+                    if (showPlaceholder && textFieldValue.text.isEmpty()) {
                         Text(
-                            text = if (paragraph.style.isHeading) "Heading..." else "Type something...",
+                            text = if (paragraph.style.isHeading) "Heading..." else "Start typing...",
                             style = TextStyle(
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                color = placeholderColor,
                                 fontSize = styleFontSize,
                                 fontStyle = styleFontStyle,
                                 textAlign = textAlign
@@ -527,6 +665,7 @@ fun ParagraphBlockItem(
 fun TableBlockItem(
     table: DocumentBlock.Table,
     isActive: Boolean,
+    defaultInkColor: Color,
     onFocused: () -> Unit,
     onCellChanged: (Int, Int, String) -> Unit,
     onAddRow: (Int) -> Unit,
@@ -544,7 +683,7 @@ fun TableBlockItem(
             .padding(vertical = 8.dp)
             .border(
                 width = if (isActive) 1.5.dp else 1.dp,
-                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                color = if (isActive) MaterialTheme.colorScheme.primary else defaultInkColor.copy(alpha = 0.25f),
                 shape = RoundedCornerShape(4.dp)
             )
             .clip(RoundedCornerShape(4.dp))
@@ -627,8 +766,8 @@ fun TableBlockItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (row.isHeader) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        else MaterialTheme.colorScheme.surface
+                        if (row.isHeader) defaultInkColor.copy(alpha = 0.08f)
+                        else Color.Transparent
                     )
             ) {
                 row.cells.forEachIndexed { cIdx, cell ->
@@ -639,11 +778,11 @@ fun TableBlockItem(
                             .weight(1f)
                             .border(
                                 width = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                color = defaultInkColor.copy(alpha = 0.2f)
                             )
                             .then(
                                 if (isCellSelected) {
-                                    Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                    Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
                                 } else Modifier
                             )
                             .padding(8.dp)
@@ -653,20 +792,56 @@ fun TableBlockItem(
                                 onFocused()
                             }
                     ) {
-                        var cellText by remember(cell.plainText) { mutableStateOf(cell.plainText) }
+                        var cellText by remember(cell.id) { mutableStateOf(cell.plainText) }
+                        var lastSentCellText by remember(cell.id) { mutableStateOf(cell.plainText) }
+
+                        LaunchedEffect(cell.plainText) {
+                            if (cell.plainText != lastSentCellText) {
+                                lastSentCellText = cell.plainText
+                                cellText = cell.plainText
+                            }
+                        }
 
                         BasicTextField(
                             value = cellText,
                             onValueChange = { newTxt ->
                                 cellText = newTxt
-                                onCellChanged(rIdx, cIdx, newTxt)
+                                if (newTxt != lastSentCellText) {
+                                    lastSentCellText = newTxt
+                                    onCellChanged(rIdx, cIdx, newTxt)
+                                }
                             },
                             textStyle = TextStyle(
                                 fontSize = 13.sp,
                                 fontWeight = if (row.isHeader) FontWeight.Bold else FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = defaultInkColor
                             ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            cursorBrush = SolidColor(if (defaultInkColor.red > 0.5f) Color(0xFF38BDF8) else Color(0xFF0284C7)),
+                            singleLine = false,
+                            maxLines = 10,
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Sentences,
+                                autoCorrectEnabled = true
+                            ),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .defaultMinSize(minHeight = 24.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (cellText.isEmpty()) {
+                                        Text(
+                                            text = if (row.isHeader) "Header" else "—",
+                                            style = TextStyle(
+                                                fontSize = 12.sp,
+                                                color = defaultInkColor.copy(alpha = 0.35f)
+                                            )
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

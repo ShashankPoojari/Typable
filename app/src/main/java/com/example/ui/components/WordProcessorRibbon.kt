@@ -23,11 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.*
+import com.example.storage.CustomFontManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,6 +55,7 @@ fun WordProcessorRibbon(
     isPrintLayout: Boolean,
     showRuler: Boolean,
     zoomScale: Float,
+    defaultInkColor: Color = Color(0xFF0F172A),
     isRibbonExpanded: Boolean,
     activeTab: RibbonTab,
     onTabSelected: (RibbonTab) -> Unit,
@@ -72,7 +75,8 @@ fun WordProcessorRibbon(
     onToggleNumberedList: () -> Unit,
     onIndent: () -> Unit,
     onOutdent: () -> Unit,
-    onApplyFontFamily: (DocumentFont) -> Unit,
+    onApplyFontFamily: (DocumentFont, String?) -> Unit,
+    onImportFontClick: () -> Unit = {},
     onApplyFontSizeDelta: (Float) -> Unit,
     onApplyColor: (String?) -> Unit,
     onApplyHighlight: (String?) -> Unit,
@@ -149,6 +153,7 @@ fun WordProcessorRibbon(
                             activeBlock = activeBlock,
                             canUndo = canUndo,
                             canRedo = canRedo,
+                            defaultInkColor = defaultInkColor,
                             onUndo = onUndo,
                             onRedo = onRedo,
                             onToggleBold = onToggleBold,
@@ -164,6 +169,7 @@ fun WordProcessorRibbon(
                             onIndent = onIndent,
                             onOutdent = onOutdent,
                             onApplyFontFamily = onApplyFontFamily,
+                            onImportFontClick = onImportFontClick,
                             onApplyFontSizeDelta = onApplyFontSizeDelta,
                             onApplyColor = onApplyColor,
                             onApplyHighlight = onApplyHighlight,
@@ -310,6 +316,7 @@ private fun HomeRibbonCommands(
     activeBlock: DocumentBlock?,
     canUndo: Boolean,
     canRedo: Boolean,
+    defaultInkColor: Color = Color(0xFF0F172A),
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onToggleBold: () -> Unit,
@@ -324,7 +331,8 @@ private fun HomeRibbonCommands(
     onToggleNumberedList: () -> Unit,
     onIndent: () -> Unit,
     onOutdent: () -> Unit,
-    onApplyFontFamily: (DocumentFont) -> Unit,
+    onApplyFontFamily: (DocumentFont, String?) -> Unit,
+    onImportFontClick: () -> Unit = {},
     onApplyFontSizeDelta: (Float) -> Unit,
     onApplyColor: (String?) -> Unit,
     onApplyHighlight: (String?) -> Unit,
@@ -332,6 +340,7 @@ private fun HomeRibbonCommands(
     onOpenExpandedPanel: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
     val paragraph = activeBlock as? DocumentBlock.Paragraph
     val currentRun = paragraph?.runs?.firstOrNull() ?: TextRun("")
     val currentStyle = paragraph?.style ?: BlockStyle.NORMAL
@@ -374,23 +383,51 @@ private fun HomeRibbonCommands(
 
         // --- Group 3: Font Family Dropdown ---
         Box {
+            val customFonts = remember(showFontMenu) {
+                if (showFontMenu) CustomFontManager.listCustomFonts(context) else emptyList()
+            }
+            val displayFontName = if (currentRun.fontFamily == DocumentFont.CUSTOM && !currentRun.customFontName.isNullOrBlank()) {
+                currentRun.customFontName
+            } else {
+                currentRun.fontFamily.displayName
+            }
+
             OutlinedButton(
                 onClick = { showFontMenu = true },
                 modifier = Modifier.height(36.dp),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                 shape = RoundedCornerShape(6.dp)
             ) {
-                Text(text = currentRun.fontFamily.displayName, fontSize = 12.sp, maxLines = 1)
+                Text(text = displayFontName, fontSize = 12.sp, maxLines = 1)
                 Spacer(modifier = Modifier.width(2.dp))
                 Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
             }
 
-            DropdownMenu(expanded = showFontMenu, onDismissRequest = { showFontMenu = false }) {
-                DocumentFont.values().forEach { font ->
+            DropdownMenu(
+                expanded = showFontMenu,
+                onDismissRequest = { showFontMenu = false },
+                modifier = Modifier.widthIn(min = 220.dp, max = 290.dp)
+            ) {
+                Text(
+                    text = "BUILT-IN & GOOGLE FONTS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+
+                DocumentFont.values().filter { it != DocumentFont.CUSTOM }.forEach { font ->
+                    val previewFontFamily = CustomFontManager.getComposeFontFamily(context, font)
                     DropdownMenuItem(
-                        text = { Text(font.displayName, fontSize = 13.sp) },
+                        text = {
+                            Text(
+                                text = font.displayName,
+                                fontSize = 13.sp,
+                                fontFamily = previewFontFamily
+                            )
+                        },
                         onClick = {
-                            onApplyFontFamily(font)
+                            onApplyFontFamily(font, null)
                             showFontMenu = false
                         },
                         trailingIcon = if (currentRun.fontFamily == font) {
@@ -398,6 +435,64 @@ private fun HomeRibbonCommands(
                         } else null
                     )
                 }
+
+                if (customFonts.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text(
+                        text = "IMPORTED FONTS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+
+                    customFonts.forEach { customName ->
+                        val isSelected = currentRun.fontFamily == DocumentFont.CUSTOM && currentRun.customFontName == customName
+                        val customPreviewFamily = CustomFontManager.getComposeFontFamily(context, DocumentFont.CUSTOM, customName)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = customName,
+                                    fontSize = 13.sp,
+                                    fontFamily = customPreviewFamily
+                                )
+                            },
+                            onClick = {
+                                onApplyFontFamily(DocumentFont.CUSTOM, customName)
+                                showFontMenu = false
+                            },
+                            trailingIcon = if (isSelected) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AddCircleOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Import Font (.ttf / .otf)...",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    },
+                    onClick = {
+                        showFontMenu = false
+                        onImportFontClick()
+                    }
+                )
             }
         }
 
@@ -448,13 +543,15 @@ private fun HomeRibbonCommands(
             RibbonColorButton(
                 icon = Icons.Default.FormatColorText,
                 label = "Text Color",
-                barColor = currentRun.textColorHex?.let { try { Color(android.graphics.Color.parseColor(it)) } catch (e: Exception) { null } } ?: MaterialTheme.colorScheme.onSurface,
+                barColor = currentRun.textColorHex?.let { try { Color(android.graphics.Color.parseColor(it)) } catch (e: Exception) { defaultInkColor } } ?: defaultInkColor,
                 onClick = { showColorPickerMenu = true }
             )
             DropdownMenu(expanded = showColorPickerMenu, onDismissRequest = { showColorPickerMenu = false }) {
                 Text("Select Text Color", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                 ColorPaletteRow(
                     colors = listOf(null, "#000000", "#1E293B", "#1E40AF", "#047857", "#B91C1C", "#7C3AED", "#B45309"),
+                    selectedColor = currentRun.textColorHex,
+                    defaultColor = defaultInkColor,
                     onSelectColor = {
                         onApplyColor(it)
                         showColorPickerMenu = false
@@ -474,6 +571,8 @@ private fun HomeRibbonCommands(
                 Text("Select Highlight Color", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                 ColorPaletteRow(
                     colors = listOf(null, "#FEF08A", "#BBF7D0", "#BAE6FD", "#FBCFE8", "#FED7AA", "#E9D5FF"),
+                    selectedColor = currentRun.highlightColorHex,
+                    defaultColor = Color.Transparent,
                     onSelectColor = {
                         onApplyHighlight(it)
                         showHighlightPickerMenu = false
@@ -1151,6 +1250,8 @@ fun RibbonGroupDivider() {
 @Composable
 fun ColorPaletteRow(
     colors: List<String?>,
+    selectedColor: String? = null,
+    defaultColor: Color = Color.Black,
     onSelectColor: (String?) -> Unit
 ) {
     Row(
@@ -1160,27 +1261,54 @@ fun ColorPaletteRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         colors.forEach { hex ->
+            val isSelected = if (hex == null) selectedColor == null else hex.equals(selectedColor, ignoreCase = true)
+
             if (hex == null) {
-                // Auto / None option
+                // Auto / Default option
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        .background(if (defaultColor != Color.Transparent) defaultColor.copy(alpha = 0.15f) else Color.Transparent)
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            shape = CircleShape
+                        )
                         .clickable { onSelectColor(null) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "None", modifier = Modifier.size(14.dp))
+                    if (defaultColor != Color.Transparent) {
+                        Text("A", fontSize = 11.sp, fontWeight = FontWeight.Black, color = defaultColor)
+                    } else {
+                        Icon(Icons.Default.Close, contentDescription = "None", modifier = Modifier.size(14.dp))
+                    }
                 }
             } else {
+                val swatchColor = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Gray }
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(android.graphics.Color.parseColor(hex)))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), CircleShape)
-                        .clickable { onSelectColor(hex) }
-                )
+                        .background(swatchColor)
+                        .border(
+                            width = if (isSelected) 2.5.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            shape = CircleShape
+                        )
+                        .clickable { onSelectColor(hex) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        val lum = 0.2126f * swatchColor.red + 0.7152f * swatchColor.green + 0.0722f * swatchColor.blue
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = if (lum > 0.5f) Color.Black else Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
             }
         }
     }

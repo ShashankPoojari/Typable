@@ -47,7 +47,7 @@ fun EditorScreen(
     // Ribbon & View state (Microsoft Word & Google Docs layout)
     var activeRibbonTab by remember { mutableStateOf(RibbonTab.HOME) }
     var isRibbonExpanded by remember { mutableStateOf(true) }
-    var showRuler by remember { mutableStateOf(true) }
+    var showRuler by remember { mutableStateOf(false) }
     var zoomScale by remember { mutableFloatStateOf(1.0f) }
 
     // Dialog & Panel states
@@ -65,6 +65,16 @@ fun EditorScreen(
     var overflowMenuExpanded by remember { mutableStateOf(false) }
 
     val stats = remember(uiState.document) { uiState.document.computeStats() }
+
+    val defaultInkColor = remember(uiState.document.pageSettings.backgroundColorHex) {
+        val paperColor = try {
+            Color(android.graphics.Color.parseColor(uiState.document.pageSettings.backgroundColorHex))
+        } catch (_: Exception) {
+            Color.White
+        }
+        val lum = 0.299f * paperColor.red + 0.587f * paperColor.green + 0.114f * paperColor.blue
+        if (lum < 0.5f) Color(0xFFF8FAFC) else Color(0xFF0F172A)
+    }
 
     // Intercept back navigation to guarantee auto-saving
     BackHandler {
@@ -93,20 +103,14 @@ fun EditorScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
+                                    .fillMaxWidth()
                                     .clickable {
                                         renameText = uiState.document.title
                                         showRenameDialog = true
                                     }
                                     .padding(vertical = 4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = uiState.document.title,
@@ -123,7 +127,10 @@ fun EditorScreen(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                         )
                                     }
-                                    SaveStatusIndicator(saveState = uiState.saveState)
+                                    SaveStatusIndicator(
+                                        saveState = uiState.saveState,
+                                        onRetry = { viewModel.explicitSave() }
+                                    )
                                 }
                             }
                         },
@@ -154,19 +161,9 @@ fun EditorScreen(
                                 )
                             }
 
-                            // Search / Find & Replace
-                            IconButton(onClick = { viewModel.openSearch() }) {
-                                Icon(Icons.Default.Search, contentDescription = "Find & Replace")
-                            }
-
                             // Share / Export
                             IconButton(onClick = { showExportSheet = true }) {
                                 Icon(Icons.Default.Share, contentDescription = "Export & Share")
-                            }
-
-                            // Fullscreen Focus Mode
-                            IconButton(onClick = { viewModel.toggleFocusMode() }) {
-                                Icon(Icons.Default.Fullscreen, contentDescription = "Focus Mode")
                             }
 
                             // Overflow Menu
@@ -188,6 +185,7 @@ fun EditorScreen(
                         isPrintLayout = uiState.isPrintLayoutMode,
                         showRuler = showRuler,
                         zoomScale = zoomScale,
+                        defaultInkColor = defaultInkColor,
                         isRibbonExpanded = isRibbonExpanded,
                         activeTab = activeRibbonTab,
                         onTabSelected = {
@@ -214,7 +212,7 @@ fun EditorScreen(
                         onToggleNumberedList = { viewModel.toggleNumberedList() },
                         onIndent = { viewModel.indent() },
                         onOutdent = { viewModel.outdent() },
-                        onApplyFontFamily = { viewModel.applyFontFamily(it) },
+                        onApplyFontFamily = { font, customName -> viewModel.applyFontFamily(font, customName) },
                         onApplyFontSizeDelta = { viewModel.applyFontSizeDelta(it) },
                         onApplyColor = { viewModel.applyColor(it) },
                         onApplyHighlight = { viewModel.applyHighlight(it) },
@@ -353,19 +351,19 @@ fun EditorScreen(
                         // Right Section: Layout View Toggles, Ruler, and Zoom Stepper
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             // Print Layout View Icon Toggle
                             IconButton(
                                 onClick = {
                                     if (!uiState.isPrintLayoutMode) viewModel.togglePrintLayoutMode()
                                 },
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Description,
                                     contentDescription = "Print Layout",
-                                    modifier = Modifier.size(15.dp),
+                                    modifier = Modifier.size(17.dp),
                                     tint = if (uiState.isPrintLayoutMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
@@ -375,12 +373,12 @@ fun EditorScreen(
                                 onClick = {
                                     if (uiState.isPrintLayoutMode) viewModel.togglePrintLayoutMode()
                                 },
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Article,
                                     contentDescription = "Web Reflow Layout",
-                                    modifier = Modifier.size(15.dp),
+                                    modifier = Modifier.size(17.dp),
                                     tint = if (!uiState.isPrintLayoutMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
@@ -388,12 +386,12 @@ fun EditorScreen(
                             // Ruler Toggle
                             IconButton(
                                 onClick = { showRuler = !showRuler },
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Straighten,
                                     contentDescription = "Toggle Ruler",
-                                    modifier = Modifier.size(15.dp),
+                                    modifier = Modifier.size(17.dp),
                                     tint = if (showRuler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                 )
                             }
@@ -401,30 +399,30 @@ fun EditorScreen(
                             // Zoom -
                             IconButton(
                                 onClick = { zoomScale = (zoomScale - 0.15f).coerceAtLeast(0.70f) },
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(30.dp),
                                 enabled = zoomScale > 0.70f
                             ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(12.dp))
+                                Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(14.dp))
                             }
 
                             // Zoom Percentage indicator
                             Text(
                                 text = "${(zoomScale * 100).toInt()}%",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .clickable { zoomScale = 1.0f }
-                                    .padding(horizontal = 2.dp)
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
                             )
 
                             // Zoom +
                             IconButton(
                                 onClick = { zoomScale = (zoomScale + 0.15f).coerceAtMost(1.50f) },
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(30.dp),
                                 enabled = zoomScale < 1.50f
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(12.dp))
+                                Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(14.dp))
                             }
                         }
                     }
@@ -436,6 +434,7 @@ fun EditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Search & Replace Bar (when active)
@@ -466,9 +465,14 @@ fun EditorScreen(
                     isPrintLayout = uiState.isPrintLayoutMode,
                     showRuler = showRuler,
                     zoomScale = zoomScale,
+                    requestedCursorOffset = uiState.requestedCursorOffset,
+                    onConsumeRequestedCursor = { viewModel.consumeRequestedCursor() },
                     onSelectBlock = { viewModel.selectBlock(it) },
                     onUpdateText = { idx, text -> viewModel.updateParagraphText(idx, text) },
                     onSplitParagraph = { idx, offset -> viewModel.splitParagraph(idx, offset) },
+                    onSplitParagraphWithText = { idx, offset, before, after ->
+                        viewModel.splitParagraph(idx, offset, before, after)
+                    },
                     onMergeWithPrevious = { idx -> viewModel.mergeWithPrevious(idx) },
                     onDeleteBlock = { idx -> viewModel.deleteBlock(idx) },
                     onUpdateTableCell = { bIdx, rIdx, cIdx, text ->
@@ -740,8 +744,16 @@ fun EditorScreen(
 }
 
 @Composable
-fun SaveStatusIndicator(saveState: SaveState) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+fun SaveStatusIndicator(
+    saveState: SaveState,
+    onRetry: (() -> Unit)? = null
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = if (saveState == SaveState.ERROR && onRetry != null) {
+            Modifier.clickable { onRetry() }
+        } else Modifier
+    ) {
         when (saveState) {
             SaveState.SAVED -> {
                 Icon(
@@ -779,7 +791,11 @@ fun SaveStatusIndicator(saveState: SaveState) {
                     modifier = Modifier.size(11.dp)
                 )
                 Spacer(modifier = Modifier.width(3.dp))
-                Text("Save Error", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = if (onRetry != null) "Save error (tap to retry)" else "Save error",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }

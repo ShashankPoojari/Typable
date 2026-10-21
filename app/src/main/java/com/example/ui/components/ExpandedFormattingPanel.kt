@@ -233,13 +233,13 @@ fun ExpandedFormattingBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             textColors.forEach { (hex, label) ->
-                                val color = hex?.let { Color(android.graphics.Color.parseColor(it)) } ?: MaterialTheme.colorScheme.onSurface
+                                val color = hex?.let { try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { Color.Gray } } ?: MaterialTheme.colorScheme.onSurface
                                 val isSelected = currentRun.textColorHex == hex
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(color)
+                                        .background(if (hex == null) MaterialTheme.colorScheme.surfaceVariant else color)
                                         .border(
                                             width = if (isSelected) 3.dp else 1.dp,
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
@@ -248,11 +248,14 @@ fun ExpandedFormattingBottomSheet(
                                         .clickable { onApplyColor(hex) },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (isSelected) {
+                                    if (hex == null && !isSelected) {
+                                        Text("A", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    } else if (isSelected) {
+                                        val lum = if (hex == null) 0.5f else (0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue)
                                         Icon(
                                             Icons.Default.Check,
                                             contentDescription = label,
-                                            tint = if (hex == null || hex == "#0F172A") Color.White else Color.Black,
+                                            tint = if (lum > 0.5f) Color.Black else Color.White,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }

@@ -29,36 +29,30 @@ class DocumentStorage(private val context: Context) {
     @Synchronized
     fun saveDocument(document: TypableDocument): Boolean {
         return try {
-            val file = File(documentsDir, "${document.id}.json")
+            if (!documentsDir.exists()) {
+                documentsDir.mkdirs()
+            }
+            val targetFile = File(documentsDir, "${document.id}.json")
             val tempFile = File(documentsDir, "${document.id}.tmp")
             val backupFile = File(documentsDir, "${document.id}.bak")
 
             val jsonString = serializeDocument(document)
-
-            // Write to temp file first with atomic flush
-            FileOutputStream(tempFile).use { fos ->
-                OutputStreamWriter(fos, StandardCharsets.UTF_8).use { writer ->
-                    writer.write(jsonString)
-                    writer.flush()
-                }
-                fos.fd.sync()
-            }
-
-            // If main file exists, backup to .bak
-            if (file.exists()) {
-                if (backupFile.exists()) backupFile.delete()
-                file.copyTo(backupFile, overwrite = true)
-            }
+            tempFile.writeText(jsonString, StandardCharsets.UTF_8)
 
             // Atomic rename
-            val renamed = tempFile.renameTo(file)
+            if (targetFile.exists()) {
+                try {
+                    targetFile.copyTo(backupFile, overwrite = true)
+                } catch (_: Exception) {}
+            }
+            val renamed = tempFile.renameTo(targetFile)
             if (!renamed) {
-                // Fallback copy if rename fails
-                tempFile.copyTo(file, overwrite = true)
+                tempFile.copyTo(targetFile, overwrite = true)
                 tempFile.delete()
             }
             true
         } catch (e: Exception) {
+            android.util.Log.e("DocumentStorage", "saveDocument failed for id=${document.id}", e)
             e.printStackTrace()
             false
         }
@@ -221,7 +215,7 @@ class DocumentStorage(private val context: Context) {
                     bObj.put("type", "paragraph")
                     bObj.put("style", block.style.name)
                     bObj.put("alignment", block.alignment.name)
-                    bObj.put("lineSpacing", block.lineSpacing.toDouble())
+                    bObj.put("lineSpacing", block.lineSpacing.takeIf { it.isFinite() }?.toDouble() ?: 1.15)
                     bObj.put("indentationLevel", block.indentationLevel)
                     bObj.put("listType", block.listType.name)
                     bObj.put("listIndex", block.listIndex)
@@ -236,10 +230,11 @@ class DocumentStorage(private val context: Context) {
                         rObj.put("strike", run.isStrikethrough)
                         rObj.put("superscript", run.isSuperscript)
                         rObj.put("subscript", run.isSubscript)
-                        rObj.put("fontSizeSp", run.fontSizeSp.toDouble())
+                        rObj.put("fontSizeSp", run.fontSizeSp.takeIf { it.isFinite() }?.toDouble() ?: 15.0)
                         if (run.textColorHex != null) rObj.put("color", run.textColorHex)
                         if (run.highlightColorHex != null) rObj.put("highlight", run.highlightColorHex)
                         rObj.put("fontFamily", run.fontFamily.name)
+                        if (run.customFontName != null) rObj.put("customFontName", run.customFontName)
                         if (run.linkUrl != null) rObj.put("linkUrl", run.linkUrl)
                         runsArr.put(rObj)
                     }
@@ -401,6 +396,7 @@ class DocumentStorage(private val context: Context) {
                                         textColorHex = if (rObj.has("color")) rObj.getString("color") else null,
                                         highlightColorHex = if (rObj.has("highlight")) rObj.getString("highlight") else null,
                                         fontFamily = safeValueOf(rObj.optString("fontFamily"), DocumentFont.SYSTEM_SANS),
+                                        customFontName = if (rObj.has("customFontName")) rObj.getString("customFontName") else null,
                                         linkUrl = if (rObj.has("linkUrl")) rObj.getString("linkUrl") else null
                                     )
                                 )

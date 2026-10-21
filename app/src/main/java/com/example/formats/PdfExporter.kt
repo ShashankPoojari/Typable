@@ -106,8 +106,12 @@ object PdfExporter {
                                         else -> Typeface.NORMAL
                                     }
                                     typeface = when (segment.font) {
-                                        DocumentFont.SERIF -> Typeface.create(Typeface.SERIF, style)
-                                        DocumentFont.MONOSPACE -> Typeface.create(Typeface.MONOSPACE, style)
+                                        DocumentFont.SERIF,
+                                        DocumentFont.PLAYFAIR_DISPLAY,
+                                        DocumentFont.MERRIWEATHER,
+                                        DocumentFont.LORA -> Typeface.create(Typeface.SERIF, style)
+                                        DocumentFont.MONOSPACE,
+                                        DocumentFont.ROBOTO_MONO -> Typeface.create(Typeface.MONOSPACE, style)
                                         else -> Typeface.create(Typeface.DEFAULT, style)
                                     }
                                     isUnderlineText = segment.isUnderline

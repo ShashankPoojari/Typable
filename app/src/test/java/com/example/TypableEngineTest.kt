@@ -210,4 +210,72 @@ class TypableEngineTest {
         val imported = DocxFormat.importFromDocx(ByteArrayInputStream(bytes))
         assertTrue(imported.blocks.isNotEmpty())
     }
+
+    @Test
+    fun testSplitParagraphWithExplicitText() {
+        val doc = TypableDocument(
+            blocks = listOf(DocumentBlock.Paragraph(runs = listOf(TextRun("Initial text"))))
+        )
+        val engine = DocumentEngine(doc)
+
+        // Split with explicit before and after text (preserves in-flight typed text)
+        val newIdx = engine.splitParagraph(
+            blockIndex = 0,
+            cursorOffset = 5,
+            explicitBeforeText = "Fresh prefix",
+            explicitAfterText = "Fresh suffix"
+        )
+        assertEquals(1, newIdx)
+        assertEquals(2, engine.currentDocument.blocks.size)
+
+        val firstP = engine.currentDocument.blocks[0] as DocumentBlock.Paragraph
+        val secondP = engine.currentDocument.blocks[1] as DocumentBlock.Paragraph
+
+        assertEquals("Fresh prefix", firstP.plainText)
+        assertEquals("Fresh suffix", secondP.plainText)
+    }
+
+    @Test
+    fun testMergeWithPreviousSmartOutdentAndListReset() {
+        // 1. Indented paragraph outdents first
+        val docIndented = TypableDocument(
+            blocks = listOf(
+                DocumentBlock.Paragraph(runs = listOf(TextRun("First"))),
+                DocumentBlock.Paragraph(runs = listOf(TextRun("Indented text")), indentationLevel = 2)
+            )
+        )
+        val engine1 = DocumentEngine(docIndented)
+        val idx1 = engine1.mergeWithPrevious(1)
+        assertEquals(1, idx1)
+        val p1 = engine1.currentDocument.blocks[1] as DocumentBlock.Paragraph
+        assertEquals(1, p1.indentationLevel)
+        assertEquals("Indented text", p1.plainText)
+
+        // 2. Empty bullet item resets to normal paragraph on backspace
+        val docBullet = TypableDocument(
+            blocks = listOf(
+                DocumentBlock.Paragraph(runs = listOf(TextRun("First"))),
+                DocumentBlock.Paragraph(runs = listOf(TextRun("")), listType = ListType.BULLET)
+            )
+        )
+        val engine2 = DocumentEngine(docBullet)
+        val idx2 = engine2.mergeWithPrevious(1)
+        assertEquals(1, idx2)
+        val p2 = engine2.currentDocument.blocks[1] as DocumentBlock.Paragraph
+        assertEquals(ListType.NONE, p2.listType)
+
+        // 3. Empty paragraph after divider deletes the divider
+        val docDivider = TypableDocument(
+            blocks = listOf(
+                DocumentBlock.Paragraph(runs = listOf(TextRun("Above"))),
+                DocumentBlock.Divider(),
+                DocumentBlock.Paragraph(runs = listOf(TextRun("")))
+            )
+        )
+        val engine3 = DocumentEngine(docDivider)
+        val idx3 = engine3.mergeWithPrevious(2)
+        assertEquals(1, idx3)
+        assertEquals(2, engine3.currentDocument.blocks.size)
+        assertTrue(engine3.currentDocument.blocks[1] is DocumentBlock.Paragraph)
+    }
 }

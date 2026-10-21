@@ -25,7 +25,14 @@ enum class PageMargins(val displayName: String, val marginPt: Int) {
 enum class DocumentFont(val displayName: String, val fontName: String) {
     SYSTEM_SANS("Sans-Serif", "sans-serif"),
     SERIF("Serif (Classic)", "serif"),
-    MONOSPACE("Monospace (Code)", "monospace")
+    MONOSPACE("Monospace (Code)", "monospace"),
+    PLAYFAIR_DISPLAY("Playfair Display", "playfair_display"),
+    MERRIWEATHER("Merriweather", "merriweather"),
+    MONTSERRAT("Montserrat", "montserrat"),
+    LORA("Lora", "lora"),
+    ROBOTO_MONO("Roboto Mono", "roboto_mono"),
+    CAVEAT("Caveat (Handwritten)", "caveat"),
+    CUSTOM("Custom Font", "custom")
 }
 
 enum class BlockStyle(val displayName: String, val defaultFontSizeSp: Float, val isHeading: Boolean = false) {
@@ -57,7 +64,7 @@ data class PageSettings(
     val orientation: PageOrientation = PageOrientation.PORTRAIT,
     val margins: PageMargins = PageMargins.NORMAL,
     val backgroundColorHex: String = "#FFFFFF",
-    val showPageNumbers: Boolean = true,
+    val showPageNumbers: Boolean = false,
     val headerText: String = "",
     val footerText: String = ""
 ) {
@@ -89,6 +96,7 @@ data class TextRun(
     val textColorHex: String? = null,
     val highlightColorHex: String? = null,
     val fontFamily: DocumentFont = DocumentFont.SYSTEM_SANS,
+    val customFontName: String? = null,
     val linkUrl: String? = null
 )
 

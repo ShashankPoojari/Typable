@@ -10,12 +10,14 @@ import com.example.engine.DocumentEngine
 import com.example.formats.*
 import com.example.model.*
 import com.example.storage.DocumentStorage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
@@ -41,7 +43,8 @@ data class EditorUiState(
     val wholeWord: Boolean = false,
     val searchMatches: List<DocumentEngine.SearchMatch> = emptyList(),
     val currentMatchIndex: Int = 0,
-    val statusMessage: String? = null
+    val statusMessage: String? = null,
+    val requestedCursorOffset: Int? = null
 )
 
 class EditorViewModel(
@@ -76,6 +79,14 @@ class EditorViewModel(
         }
     }
 
+    fun consumeRequestedCursor(): Int? {
+        val offset = _uiState.value.requestedCursorOffset
+        if (offset != null) {
+            _uiState.value = _uiState.value.copy(requestedCursorOffset = null)
+        }
+        return offset
+    }
+
     fun updateTitle(title: String) {
         engine.updateTitle(title)
         syncStateAfterEdit()
@@ -91,16 +102,31 @@ class EditorViewModel(
         syncStateAfterEdit()
     }
 
-    fun splitParagraph(blockIndex: Int, cursorOffset: Int) {
-        val newIndex = engine.splitParagraph(blockIndex, cursorOffset)
+    fun splitParagraph(
+        blockIndex: Int,
+        cursorOffset: Int,
+        beforeText: String? = null,
+        afterText: String? = null
+    ) {
+        val newIndex = engine.splitParagraph(blockIndex, cursorOffset, beforeText, afterText)
         syncStateAfterEdit()
-        _uiState.value = _uiState.value.copy(activeBlockIndex = newIndex)
+        _uiState.value = _uiState.value.copy(
+            activeBlockIndex = newIndex,
+            requestedCursorOffset = 0
+        )
     }
 
     fun mergeWithPrevious(blockIndex: Int) {
+        if (blockIndex !in _uiState.value.document.blocks.indices) return
+        val prevBlock = if (blockIndex > 0) _uiState.value.document.blocks[blockIndex - 1] as? DocumentBlock.Paragraph else null
+        val junctionOffset = prevBlock?.plainText?.length ?: 0
+
         val newIndex = engine.mergeWithPrevious(blockIndex)
         syncStateAfterEdit()
-        _uiState.value = _uiState.value.copy(activeBlockIndex = newIndex)
+        _uiState.value = _uiState.value.copy(
+            activeBlockIndex = newIndex,
+            requestedCursorOffset = junctionOffset
+        )
     }
 
     fun toggleBold() {
@@ -143,8 +169,8 @@ class EditorViewModel(
         syncStateAfterEdit()
     }
 
-    fun applyFontFamily(font: DocumentFont) {
-        engine.applyFontFamily(_uiState.value.activeBlockIndex, font)
+    fun applyFontFamily(font: DocumentFont, customFontName: String? = null) {
+        engine.applyFontFamily(_uiState.value.activeBlockIndex, font, customFontName)
         syncStateAfterEdit()
     }
 
@@ -374,11 +400,17 @@ class EditorViewModel(
 
     fun explicitSave(): Boolean {
         _uiState.value = _uiState.value.copy(saveState = SaveState.SAVING)
-        val success = storage.saveDocument(engine.currentDocument)
-        _uiState.value = _uiState.value.copy(
-            saveState = if (success) SaveState.SAVED else SaveState.ERROR
-        )
-        return success
+        return try {
+            val success = storage.saveDocument(engine.currentDocument)
+            _uiState.value = _uiState.value.copy(
+                saveState = if (success) SaveState.SAVED else SaveState.ERROR
+            )
+            success
+        } catch (e: Exception) {
+            android.util.Log.e("EditorViewModel", "explicitSave failed", e)
+            _uiState.value = _uiState.value.copy(saveState = SaveState.ERROR)
+            false
+        }
     }
 
     private fun syncStateAfterEdit() {
@@ -393,13 +425,22 @@ class EditorViewModel(
 
     private fun scheduleAutosave() {
         autosaveJob?.cancel()
-        autosaveJob = viewModelScope.launch {
-            delay(1500)
-            _uiState.value = _uiState.value.copy(saveState = SaveState.SAVING)
-            val success = storage.saveDocument(engine.currentDocument)
-            _uiState.value = _uiState.value.copy(
-                saveState = if (success) SaveState.SAVED else SaveState.ERROR
-            )
+        autosaveJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(1200)
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(saveState = SaveState.SAVING)
+            }
+            val success = try {
+                storage.saveDocument(engine.currentDocument)
+            } catch (e: Exception) {
+                android.util.Log.e("EditorViewModel", "autosave failed", e)
+                false
+            }
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    saveState = if (success) SaveState.SAVED else SaveState.ERROR
+                )
+            }
         }
     }
 
